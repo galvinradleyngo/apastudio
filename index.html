@@ -1,0 +1,787 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>APA Table Formatter & Workspace</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Playfair+Display:ital,wght@0,600;1,600&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        body { 
+            font-family: 'Plus Jakarta Sans', sans-serif; 
+            background-color: #f8fafc; 
+        }
+        
+        /* Modern Scrollbars */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+
+        /* Live APA Preview Page Sandbox styling */
+        .preview-canvas {
+            background-color: #f1f5f9;
+            background-image: radial-gradient(#e2e8f0 1.5px, transparent 1.5px);
+            background-size: 24px 24px;
+        }
+
+        .apa-preview-container {
+            font-family: 'Times New Roman', Times, serif;
+            color: #000000;
+            background: #ffffff;
+            line-height: 2; /* True APA standard is double spaced */
+            font-size: 12pt;
+        }
+
+        .apa-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 12pt;
+            margin-bottom: 12pt;
+            line-height: 1.5; /* Slightly condensed within tables for ideal layout spacing */
+        }
+        .apa-table th, .apa-table td {
+            padding: 8px 10px;
+            text-align: center;
+            border: none;
+            font-size: 11pt;
+        }
+        /* APA Standard: Stub column (first column) is always left-aligned */
+        .apa-table th:first-child, .apa-table td:first-child {
+            text-align: left; 
+        }
+        .apa-table th {
+            border-top: 1px solid #000000;
+            border-bottom: 1px solid #000000;
+            font-weight: normal;
+            vertical-align: bottom;
+        }
+        .apa-table tr:last-child td {
+            border-bottom: 1px solid #000000;
+        }
+        
+        /* Seamless Spreadsheet Cells */
+        .editor-cell {
+            transition: all 0.15s ease-in-out;
+        }
+        .editor-cell:focus {
+            outline: none;
+            background-color: #eff6ff;
+            box-shadow: inset 0 0 0 2px #3b82f6;
+        }
+        [contenteditable]:empty:before {
+            content: attr(data-placeholder);
+            color: #94a3b8;
+            pointer-events: none;
+            display: block;
+        }
+
+        /* Soft gradient glassmorphism effects */
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(12px);
+        }
+    </style>
+</head>
+<body class="h-screen flex flex-col overflow-hidden text-slate-800">
+
+    <!-- Toast Notification system -->
+    <div id="toast" class="fixed top-6 right-6 z-50 transform translate-y-12 opacity-0 pointer-events-none transition-all duration-300 flex items-center gap-3 bg-slate-900 text-white px-5 py-3.5 rounded-xl shadow-xl border border-slate-800 text-sm">
+        <div class="bg-emerald-500/20 text-emerald-400 p-1 rounded-lg">
+            <i data-lucide="check" class="w-4 h-4"></i>
+        </div>
+        <span id="toast-message" class="font-medium">Success Action completed!</span>
+    </div>
+
+    <!-- Main Workspace Navbar -->
+    <header class="bg-white/80 backdrop-blur-md border-b border-slate-200/80 px-8 py-4 flex justify-between items-center shrink-0 z-20">
+        <div class="flex items-center gap-3">
+            <div class="bg-gradient-to-tr from-blue-600 to-indigo-600 text-white p-2.5 rounded-xl shadow-md shadow-blue-500/10">
+                <i data-lucide="table-properties" class="w-5 h-5"></i>
+            </div>
+            <div>
+                <h1 class="text-lg font-bold bg-gradient-to-r from-slate-900 to-indigo-950 bg-clip-text text-transparent flex items-center gap-2">
+                    APA Table Studio
+                    <span class="text-[10px] font-semibold uppercase tracking-wider bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-full border border-indigo-100">7th Edition</span>
+                </h1>
+                <p class="text-xs text-slate-400">Perfect academic tables in seconds</p>
+            </div>
+        </div>
+        <div class="flex items-center gap-3">
+            <button id="btn-home" onclick="showHome()" class="hidden text-sm font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-50 border border-slate-200 px-4 py-2.5 rounded-xl transition-all duration-200 items-center gap-2">
+                <i data-lucide="grid-3x3" class="w-4 h-4"></i> Change Template
+            </button>
+            <button id="btn-copy" onclick="copyTableToClipboard()" class="hidden bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold py-2.5 px-4 rounded-xl border border-slate-200 transition-all duration-200 items-center gap-2">
+                <i data-lucide="copy" class="w-4 h-4"></i> Copy Formatted Table
+            </button>
+            <button id="btn-export" onclick="exportToWord()" class="hidden bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold py-2.5 px-5 rounded-xl shadow-lg shadow-blue-500/15 border border-blue-500/10 transition-all duration-200 items-center gap-2">
+                <i data-lucide="download-cloud" class="w-4 h-4"></i> Export to Word
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Workspace Frame -->
+    <main class="flex-1 flex overflow-hidden relative">
+        
+        <!-- Dashboard Home View (Template Selection Workspace) -->
+        <div id="home-view" class="absolute inset-0 bg-slate-50/50 z-30 flex flex-col items-center overflow-y-auto custom-scrollbar p-12">
+            <div class="max-w-5xl w-full space-y-12">
+                
+                <!-- Welcome/Hero Area -->
+                <div class="text-center space-y-4 max-w-2xl mx-auto">
+                    <h2 class="text-4xl font-extrabold tracking-tight text-slate-900">
+                        Academic Formatting, <span class="bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">Simplified.</span>
+                    </h2>
+                    <p class="text-slate-500 text-base leading-relaxed">
+                        Say goodbye to standard MS Word formatting frustrations. Select an APA 7th structural layout, populate your data, and export copy-paste friendly files instantly.
+                    </p>
+                </div>
+                
+                <!-- Category Blocks -->
+                <div class="space-y-8">
+                    
+                    <!-- Blank Block -->
+                    <div>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <div onclick="loadTemplate('blank')" class="bg-white border border-slate-200/80 hover:border-blue-500 hover:shadow-xl hover:shadow-blue-500/5 rounded-2xl p-6 cursor-pointer transition-all duration-300 flex flex-col items-center justify-center text-center gap-4 h-52 group relative overflow-hidden">
+                                <div class="absolute inset-x-0 bottom-0 h-1.5 bg-gradient-to-r from-blue-500 to-indigo-500 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-300"></div>
+                                <div class="bg-slate-50 text-slate-500 p-3.5 rounded-2xl group-hover:bg-blue-50 group-hover:text-blue-600 transition-all duration-300">
+                                    <i data-lucide="plus" class="w-6 h-6"></i>
+                                </div>
+                                <div>
+                                    <h3 class="font-bold text-slate-800 group-hover:text-blue-600 transition-colors">Start Empty Canvas</h3>
+                                    <p class="text-xs text-slate-400 mt-1 max-w-[200px]">Begin formatting a completely empty custom table grid.</p>
+                                </div>
+                            </div>
+
+                            <!-- Highlights Features -->
+                            <div class="col-span-1 md:col-span-2 bg-gradient-to-r from-slate-900 to-indigo-950 rounded-2xl p-8 text-white flex flex-col justify-between shadow-lg relative overflow-hidden">
+                                <div class="absolute -right-16 -bottom-16 opacity-10 text-white">
+                                    <i data-lucide="graduation-cap" class="w-64 h-64"></i>
+                                </div>
+                                <div class="space-y-2 z-10">
+                                    <span class="text-xs font-bold uppercase tracking-widest text-indigo-400 bg-indigo-500/10 px-3 py-1 rounded-full border border-indigo-500/20">APA Cheat-sheet Built In</span>
+                                    <h3 class="text-xl font-bold mt-2">Zero-Effort Borders & Alignments</h3>
+                                    <p class="text-slate-300 text-sm max-w-lg leading-relaxed">
+                                        The application automatically formats column alignment, removes vertical lines, establishes APA borders, italicizes titles, and bolds your table identifiers flawlessly.
+                                    </p>
+                                </div>
+                                <div class="flex gap-6 mt-6 text-xs text-slate-400 border-t border-slate-800/80 pt-4 z-10">
+                                    <span class="flex items-center gap-1.5"><i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-500"></i> No Vertical Lines</span>
+                                    <span class="flex items-center gap-1.5"><i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-500"></i> Left-Aligned Stub Columns</span>
+                                    <span class="flex items-center gap-1.5"><i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-500"></i> Auto Title-Casing</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Quantitative Section -->
+                    <div class="space-y-4">
+                        <div class="flex items-center gap-2 border-b border-slate-200/80 pb-3">
+                            <span class="p-1 bg-blue-50 text-blue-600 rounded-lg"><i data-lucide="binary" class="w-4 h-4"></i></span>
+                            <h3 class="text-base font-bold text-slate-800 tracking-tight">Quantitative Table Blueprints</h3>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            
+                            <div onclick="loadTemplate('descriptive')" class="bg-white border border-slate-200/80 hover:border-blue-500 hover:shadow-xl hover:shadow-blue-500/5 rounded-2xl p-6 cursor-pointer transition-all duration-300 flex items-start gap-5 group relative overflow-hidden">
+                                <div class="absolute inset-y-0 left-0 w-1.5 bg-blue-500 transform scale-y-0 group-hover:scale-y-100 transition-transform duration-300"></div>
+                                <div class="bg-blue-50 text-blue-600 p-4 rounded-xl group-hover:bg-blue-600 group-hover:text-white transition-all duration-300 shrink-0">
+                                    <i data-lucide="bar-chart-3" class="w-5 h-5"></i>
+                                </div>
+                                <div class="space-y-1">
+                                    <h4 class="font-bold text-slate-800 group-hover:text-blue-600 transition-colors">Descriptive Statistics</h4>
+                                    <p class="text-xs text-slate-400 leading-relaxed">Clean layout perfectly housing statistical measures such as Means (M), Standard Deviations (SD), and Sample Sizes (n).</p>
+                                </div>
+                            </div>
+
+                            <div onclick="loadTemplate('correlation')" class="bg-white border border-slate-200/80 hover:border-blue-500 hover:shadow-xl hover:shadow-blue-500/5 rounded-2xl p-6 cursor-pointer transition-all duration-300 flex items-start gap-5 group relative overflow-hidden">
+                                <div class="absolute inset-y-0 left-0 w-1.5 bg-blue-500 transform scale-y-0 group-hover:scale-y-100 transition-transform duration-300"></div>
+                                <div class="bg-blue-50 text-blue-600 p-4 rounded-xl group-hover:bg-blue-600 group-hover:text-white transition-all duration-300 shrink-0">
+                                    <i data-lucide="trending-up" class="w-5 h-5"></i>
+                                </div>
+                                <div class="space-y-1">
+                                    <h4 class="font-bold text-slate-800 group-hover:text-blue-600 transition-colors">Correlation Matrix</h4>
+                                    <p class="text-xs text-slate-400 leading-relaxed">Cross-variable correlation grids equipped with custom footnotes highlighting standard significance thresholds (p-values).</p>
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+
+                    <!-- Qualitative Section -->
+                    <div class="space-y-4 pt-4">
+                        <div class="flex items-center gap-2 border-b border-slate-200/80 pb-3">
+                            <span class="p-1 bg-purple-50 text-purple-600 rounded-lg"><i data-lucide="align-left" class="w-4 h-4"></i></span>
+                            <h3 class="text-base font-bold text-slate-800 tracking-tight">Qualitative Table Blueprints</h3>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            
+                            <div onclick="loadTemplate('qual_themes')" class="bg-white border border-slate-200/80 hover:border-purple-500 hover:shadow-xl hover:shadow-purple-500/5 rounded-2xl p-6 cursor-pointer transition-all duration-300 flex items-start gap-5 group relative overflow-hidden">
+                                <div class="absolute inset-y-0 left-0 w-1.5 bg-purple-500 transform scale-y-0 group-hover:scale-y-100 transition-transform duration-300"></div>
+                                <div class="bg-purple-50 text-purple-600 p-4 rounded-xl group-hover:bg-purple-600 group-hover:text-white transition-all duration-300 shrink-0">
+                                    <i data-lucide="message-square-quote" class="w-5 h-5"></i>
+                                </div>
+                                <div class="space-y-1">
+                                    <h4 class="font-bold text-slate-800 group-hover:text-purple-600 transition-colors">Themes & Quotes Matrix</h4>
+                                    <p class="text-xs text-slate-400 leading-relaxed">Designed for grouping core conceptual themes, secondary subthemes, and detailed illustrative participant responses.</p>
+                                </div>
+                            </div>
+
+                            <div onclick="loadTemplate('qual_demographics')" class="bg-white border border-slate-200/80 hover:border-purple-500 hover:shadow-xl hover:shadow-purple-500/5 rounded-2xl p-6 cursor-pointer transition-all duration-300 flex items-start gap-5 group relative overflow-hidden">
+                                <div class="absolute inset-y-0 left-0 w-1.5 bg-purple-500 transform scale-y-0 group-hover:scale-y-100 transition-transform duration-300"></div>
+                                <div class="bg-purple-50 text-purple-600 p-4 rounded-xl group-hover:bg-purple-600 group-hover:text-white transition-all duration-300 shrink-0">
+                                    <i data-lucide="users" class="w-5 h-5"></i>
+                                </div>
+                                <div class="space-y-1">
+                                    <h4 class="font-bold text-slate-800 group-hover:text-purple-600 transition-colors">Participant Characteristics</h4>
+                                    <p class="text-xs text-slate-400 leading-relaxed">A pristine structural layout perfect for displaying sample pseudonyms, demographics, cohorts, and metrics.</p>
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+
+        <!-- Integrated Editor and Workspace Preview Workspace -->
+        <div id="editor-view" class="hidden flex-1 flex overflow-hidden w-full">
+            
+            <!-- Left Side Interactive Control Dock -->
+            <div class="w-1/2 bg-white flex flex-col overflow-y-auto border-r border-slate-200 custom-scrollbar">
+                <div class="p-8 space-y-8">
+                    
+                    <!-- Structural Customizer -->
+                    <div class="bg-slate-50 border border-slate-200/80 rounded-2xl p-5 space-y-4">
+                        <div class="flex items-center justify-between border-b border-slate-200/60 pb-3">
+                            <h3 class="font-bold text-slate-800 text-sm flex items-center gap-2">
+                                <i data-lucide="settings-2" class="w-4 h-4 text-blue-600"></i>
+                                1. Table Metadata
+                            </h3>
+                            <span class="text-[10px] font-bold uppercase tracking-wider bg-emerald-50 text-emerald-600 border border-emerald-100 px-2.5 py-0.5 rounded-full">Automatic Formatting Active</span>
+                        </div>
+                        
+                        <div class="grid grid-cols-4 gap-4">
+                            <div class="col-span-1">
+                                <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Table No.</label>
+                                <input type="text" id="table-number" value="1" class="w-full border border-slate-200 rounded-xl p-3 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all" oninput="updatePreview()">
+                            </div>
+                            <div class="col-span-3">
+                                <div class="flex items-center gap-1 mb-1.5">
+                                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider">Table Title (Title Case)</label>
+                                    <div class="group relative">
+                                        <i data-lucide="help-circle" class="w-3.5 h-3.5 text-slate-400 cursor-pointer"></i>
+                                        <span class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-56 p-2.5 bg-slate-900 text-white text-[11px] rounded-lg shadow-lg opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity z-30 leading-normal">
+                                            APA requires table titles to be in title case (capitalize major words) and italicized.
+                                        </span>
+                                    </div>
+                                </div>
+                                <input type="text" id="table-title" value="Descriptive Statistics for Study Variables" class="w-full border border-slate-200 rounded-xl p-3 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all" oninput="updatePreview()">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Spreadsheet Table Sandbox -->
+                    <div class="space-y-4">
+                        <div class="flex justify-between items-center">
+                            <h3 class="font-bold text-slate-800 text-sm flex items-center gap-2">
+                                <i data-lucide="edit-3" class="w-4 h-4 text-indigo-600"></i>
+                                2. Populate Grid Data
+                            </h3>
+                            
+                            <!-- Inline Controller buttons -->
+                            <div class="flex items-center gap-1 bg-slate-100 p-1.5 rounded-xl border border-slate-200">
+                                <button onclick="modifyGrid('row', 'add')" class="text-xs font-semibold hover:bg-white text-slate-700 hover:shadow-sm px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5" title="Add Row Below">
+                                    <i data-lucide="plus" class="w-3.5 h-3.5 text-emerald-600"></i> Row
+                                </button>
+                                <button onclick="modifyGrid('row', 'remove')" class="text-xs font-semibold hover:bg-white text-slate-700 hover:shadow-sm px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5" title="Remove Bottom Row">
+                                    <i data-lucide="minus" class="w-3.5 h-3.5 text-rose-600"></i> Row
+                                </button>
+                                <div class="w-px h-4 bg-slate-200 mx-1"></div>
+                                <button onclick="modifyGrid('col', 'add')" class="text-xs font-semibold hover:bg-white text-slate-700 hover:shadow-sm px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5" title="Add Column Right">
+                                    <i data-lucide="plus" class="w-3.5 h-3.5 text-emerald-600"></i> Column
+                                </button>
+                                <button onclick="modifyGrid('col', 'remove')" class="text-xs font-semibold hover:bg-white text-slate-700 hover:shadow-sm px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5" title="Remove Last Column">
+                                    <i data-lucide="minus" class="w-3.5 h-3.5 text-rose-600"></i> Column
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- High-fidelity custom table editor wrapper -->
+                        <div class="border border-slate-200 rounded-2xl overflow-hidden bg-slate-50/50 p-4">
+                            <div class="overflow-x-auto border border-slate-200/60 rounded-xl bg-white shadow-sm custom-scrollbar">
+                                <table class="w-full border-collapse">
+                                    <tbody id="editor-grid">
+                                        <!-- Interactive table items injected by JS -->
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div class="flex items-center gap-2 text-xs text-slate-400 mt-3 px-1">
+                                <i data-lucide="sparkles" class="w-3.5 h-3.5 text-amber-500 shrink-0"></i>
+                                <span>The first row is styled as the APA Header. Tap cells directly to write, and tab through to navigate rapidly.</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- APA Footnote Configurator -->
+                    <div class="bg-slate-50 border border-slate-200/80 rounded-2xl p-5 space-y-4">
+                        <div class="flex items-center justify-between border-b border-slate-200/60 pb-3">
+                            <h3 class="font-bold text-slate-800 text-sm flex items-center gap-2">
+                                <i data-lucide="file-text" class="w-4 h-4 text-purple-600"></i>
+                                3. Table Notes & Annotations
+                            </h3>
+                            <div class="group relative">
+                                <i data-lucide="help-circle" class="w-4 h-4 text-slate-400 cursor-pointer"></i>
+                                <span class="absolute bottom-full right-0 mb-2 w-64 p-3 bg-slate-900 text-white text-[11px] rounded-xl shadow-xl opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity z-30 leading-relaxed">
+                                    <strong>APA Note Hierachy:</strong><br/>
+                                    1. <em>General notes</em> (clarify sample abbreviations)<br/>
+                                    2. <em>Specific notes</em> (superscript pointers)<br/>
+                                    3. <em>Probability notes</em> (*p values)
+                                </span>
+                            </div>
+                        </div>
+                        
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">General Note</label>
+                                <textarea id="note-general" rows="2" class="w-full border border-slate-200 rounded-xl p-3 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all placeholder-slate-400" placeholder="e.g., N = 150. All values rounded to nearest decimal." oninput="updatePreview()"></textarea>
+                            </div>
+                            
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Specific Note</label>
+                                    <textarea id="note-specific" rows="2" class="w-full border border-slate-200 rounded-xl p-3 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all placeholder-slate-400" placeholder="e.g., a Value indicates extreme outlier." oninput="updatePreview()"></textarea>
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Probability Note</label>
+                                    <textarea id="note-prob" rows="2" class="w-full border border-slate-200 rounded-xl p-3 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all placeholder-slate-400" placeholder="e.g., * p < .05. ** p < .01." oninput="updatePreview()"></textarea>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="h-12"></div>
+                </div>
+            </div>
+
+            <!-- Right Side Workspace Canvas (Live Preview) -->
+            <div class="w-1/2 preview-canvas p-10 flex flex-col overflow-y-auto custom-scrollbar relative">
+                
+                <div class="max-w-3xl w-full mx-auto flex flex-col h-full">
+                    
+                    <!-- Paper Workspace Header Controls -->
+                    <div class="flex justify-between items-center mb-4 shrink-0">
+                        <span class="text-xs font-extrabold text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                            <span class="w-2 h-2 rounded-full bg-blue-500"></span>
+                            Manuscript Paper Preview
+                        </span>
+                        
+                        <div class="flex gap-2 text-xs">
+                            <button onclick="toggleGridLineHelper()" class="bg-white border border-slate-200 hover:bg-slate-50 font-semibold px-3 py-1.5 rounded-lg text-slate-600 transition flex items-center gap-1.5">
+                                <i data-lucide="grid" class="w-3.5 h-3.5 text-slate-400"></i> Toggle Canvas Grid
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Premium Manuscript Layout Sandbox -->
+                    <div class="flex-1 flex justify-center items-start">
+                        <div class="bg-white rounded-xl shadow-2xl border border-slate-200 p-12 w-full transform origin-top transition-all duration-300 relative" id="preview-paper">
+                            
+                            <!-- Document Margin Overlay Hint -->
+                            <div class="absolute inset-y-0 left-0 w-12 border-r border-dashed border-red-100 pointer-events-none opacity-50"></div>
+                            <div class="absolute inset-y-0 right-0 w-12 border-l border-dashed border-red-100 pointer-events-none opacity-50"></div>
+
+                            <!-- Target HTML Copy/Export Wrapper -->
+                            <div id="export-container" class="apa-preview-container">
+                                
+                                <div style="font-weight: bold; margin-bottom: 0;">Table <span id="prev-num">1</span></div>
+                                <div style="font-style: italic; margin-bottom: 12pt;" id="prev-title">Descriptive Statistics for Study Variables</div>
+                                
+                                <table class="apa-table" id="prev-table">
+                                    <!-- Populated on load/edit -->
+                                </table>
+                                
+                                <div id="prev-notes-container" style="font-size: 10.5pt; line-height: 1.5; margin-top: 10pt;">
+                                    <span id="prev-note-general-wrapper" style="display: none;">
+                                        <i>Note.</i> <span id="prev-note-general"></span>
+                                    </span>
+                                    <span id="prev-note-specific-wrapper" style="display: none;">
+                                        <span id="prev-note-specific"></span>
+                                    </span>
+                                    <span id="prev-note-prob-wrapper" style="display: none;">
+                                        <span id="prev-note-prob"></span>
+                                    </span>
+                                </div>
+
+                            </div>
+
+                        </div>
+                    </div>
+
+                    <!-- Paper margin disclaimer -->
+                    <p class="text-[11px] text-slate-400 text-center mt-6">
+                        Table styling matches exact APA manuscript guidelines (double-spaced headers, no vertical borders, 1-inch margins).
+                    </p>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <script>
+        // State Engine
+        let gridData = [];
+        let gridLinesEnabled = true;
+
+        const templates = {
+            blank: [
+                ['Column 1', 'Column 2', 'Column 3'],
+                ['Data', 'Data', 'Data'],
+                ['Data', 'Data', 'Data']
+            ],
+            descriptive: [
+                ['Variable', 'M', 'SD', 'n'],
+                ['1. Age', '24.5', '3.1', '120'],
+                ['2. Years of Experience', '4.2', '1.5', '120'],
+                ['3. Self-Efficacy Score', '3.8', '0.6', '120']
+            ],
+            correlation: [
+                ['Variable', '1', '2', '3', '4'],
+                ['1. Extroversion', '—', '', '', ''],
+                ['2. Agreeableness', '.24*', '—', '', ''],
+                ['3. Conscientiousness', '.15', '.42**', '—', ''],
+                ['4. Neuroticism', '-.31**', '-.18*', '-.22*', '—']
+            ],
+            qual_themes: [
+                ['Theme', 'Subtheme', 'Illustrative Quote'],
+                ['1. Overcoming Adversity', 'Resilience', '"I just had to keep pushing forward, no matter what." (P1)'],
+                ['', 'Community Support', '"My neighbors were my rock during that time." (P4)'],
+                ['2. Career Transition', 'Skill Gap', '"I realized I needed to learn completely new tools." (P2)'],
+                ['', 'Mentorship', '"Having a guide made all the difference in my journey." (P3)']
+            ],
+            qual_demographics: [
+                ['Participant', 'Age', 'Gender', 'Role'],
+                ['Alex', '34', 'Non-binary', 'Teacher'],
+                ['Jordan', '28', 'Female', 'Software Engineer'],
+                ['Taylor', '45', 'Male', 'Nurse'],
+                ['Casey', '31', 'Female', 'Social Worker']
+            ]
+        };
+
+        // Application Lifecycles
+        function init() {
+            lucide.createIcons();
+            showHome();
+        }
+
+        function showHome() {
+            document.getElementById('home-view').style.display = 'flex';
+            document.getElementById('editor-view').style.display = 'none';
+            document.getElementById('btn-home').style.display = 'none';
+            document.getElementById('btn-export').style.display = 'none';
+            document.getElementById('btn-copy').style.display = 'none';
+        }
+
+        function showEditor() {
+            document.getElementById('home-view').style.display = 'none';
+            document.getElementById('editor-view').style.display = 'flex';
+            document.getElementById('btn-home').style.display = 'flex';
+            document.getElementById('btn-export').style.display = 'flex';
+            document.getElementById('btn-copy').style.display = 'flex';
+        }
+
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            const msgSpan = document.getElementById('toast-message');
+            msgSpan.innerText = message;
+            toast.classList.remove('opacity-0', 'translate-y-12', 'pointer-events-none');
+            toast.classList.add('opacity-100', 'translate-y-0');
+            setTimeout(() => {
+                toast.classList.add('opacity-0', 'translate-y-12', 'pointer-events-none');
+                toast.classList.remove('opacity-100', 'translate-y-0');
+            }, 3000);
+        }
+
+        function toggleGridLineHelper() {
+            const canvas = document.querySelector('.preview-canvas');
+            gridLinesEnabled = !gridLinesEnabled;
+            if (gridLinesEnabled) {
+                canvas.style.backgroundImage = 'radial-gradient(#e2e8f0 1.5px, transparent 1.5px)';
+            } else {
+                canvas.style.backgroundImage = 'none';
+            }
+        }
+
+        function loadTemplate(type) {
+            if (templates[type]) {
+                gridData = JSON.parse(JSON.stringify(templates[type]));
+                
+                if (type === 'correlation') {
+                    document.getElementById('table-title').value = "Correlations Between Personality Traits";
+                    document.getElementById('note-prob').value = "* p < .05. ** p < .01.";
+                    document.getElementById('note-general').value = "N = 250.";
+                    document.getElementById('note-specific').value = "";
+                } else if (type === 'qual_themes') {
+                    document.getElementById('table-title').value = "Themes and Illustrative Quotes from Participant Interviews";
+                    document.getElementById('note-prob').value = "";
+                    document.getElementById('note-general').value = "P = Participant ID.";
+                    document.getElementById('note-specific').value = "";
+                } else if (type === 'qual_demographics') {
+                    document.getElementById('table-title').value = "Participant Demographic Profiles";
+                    document.getElementById('note-prob').value = "";
+                    document.getElementById('note-general').value = "All participant names are research pseudonyms.";
+                    document.getElementById('note-specific').value = "";
+                } else if (type === 'blank') {
+                    document.getElementById('table-title').value = "Custom Sample Table Title";
+                    document.getElementById('note-prob').value = "";
+                    document.getElementById('note-general').value = "";
+                    document.getElementById('note-specific').value = "";
+                } else {
+                    document.getElementById('table-title').value = "Descriptive Statistics for Study Variables";
+                    document.getElementById('note-prob').value = "";
+                    document.getElementById('note-general').value = "";
+                    document.getElementById('note-specific').value = "";
+                }
+                
+                renderEditorGrid();
+                updatePreview();
+                showEditor();
+                showToast(`Loaded ${type.replace('qual_', 'Qualitative ').replace('blank', 'Blank').replace('descriptive', 'Descriptives').toUpperCase()} layout.`);
+            }
+        }
+
+        // Render the high-fidelity inline spreadsheet layout grid
+        function renderEditorGrid() {
+            const tbody = document.getElementById('editor-grid');
+            tbody.innerHTML = '';
+            
+            gridData.forEach((row, rowIndex) => {
+                const tr = document.createElement('tr');
+                tr.className = rowIndex === 0 ? "bg-slate-50 border-b border-slate-200" : "border-b border-slate-100 hover:bg-slate-50/50 transition-colors";
+                
+                row.forEach((cellText, colIndex) => {
+                    const td = document.createElement(rowIndex === 0 ? 'th' : 'td');
+                    td.className = `p-0 text-sm relative ${rowIndex === 0 ? 'font-bold text-slate-700 bg-slate-50/80' : 'font-normal text-slate-600'}`;
+                    
+                    // Column indexing helper for headers
+                    if (rowIndex === 0) {
+                        const colIndicator = document.createElement('span');
+                        colIndicator.className = "absolute top-1 left-1.5 text-[8px] font-extrabold uppercase tracking-widest text-slate-400 select-none";
+                        colIndicator.innerText = String.fromCharCode(65 + colIndex);
+                        td.appendChild(colIndicator);
+                    }
+
+                    const div = document.createElement('div');
+                    div.className = "editor-cell px-3.5 py-3 w-full h-full outline-none min-h-[44px] text-left";
+                    div.contentEditable = true;
+                    div.dataset.placeholder = rowIndex === 0 ? "Header..." : "Data...";
+                    div.innerText = cellText;
+                    
+                    div.addEventListener('input', (e) => {
+                        gridData[rowIndex][colIndex] = e.target.innerText;
+                        updatePreview();
+                    });
+                    
+                    div.addEventListener('paste', (e) => {
+                        e.preventDefault();
+                        let text = (e.originalEvent || e).clipboardData.getData('text/plain');
+                        document.execCommand('insertText', false, text);
+                    });
+
+                    td.appendChild(div);
+                    tr.appendChild(td);
+                });
+                tbody.appendChild(tr);
+            });
+        }
+
+        // Dynamic dimension adjusters
+        function modifyGrid(axis, action) {
+            if (axis === 'row') {
+                if (action === 'add') {
+                    const newRow = new Array(gridData[0].length).fill('');
+                    gridData.push(newRow);
+                } else if (action === 'remove' && gridData.length > 2) {
+                    gridData.pop();
+                }
+            } else if (axis === 'col') {
+                if (action === 'add') {
+                    gridData.forEach(row => row.push(''));
+                } else if (action === 'remove' && gridData[0].length > 1) {
+                    gridData.forEach(row => row.pop());
+                }
+            }
+            renderEditorGrid();
+            updatePreview();
+        }
+
+        // Keep preview perfectly synced
+        function updatePreview() {
+            document.getElementById('prev-num').innerText = document.getElementById('table-number').value || '1';
+            document.getElementById('prev-title').innerText = document.getElementById('table-title').value || 'Untitled Table';
+
+            const prevTable = document.getElementById('prev-table');
+            prevTable.innerHTML = '';
+            
+            // Generate structured Header Group
+            const thead = document.createElement('thead');
+            const headRow = document.createElement('tr');
+            gridData[0].forEach(header => {
+                const th = document.createElement('th');
+                th.innerHTML = header || '&nbsp;';
+                headRow.appendChild(th);
+            });
+            thead.appendChild(headRow);
+            prevTable.appendChild(thead);
+
+            // Generate structured Body Group
+            const tbody = document.createElement('tbody');
+            for (let i = 1; i < gridData.length; i++) {
+                const tr = document.createElement('tr');
+                gridData[i].forEach(cellData => {
+                    const td = document.createElement('td');
+                    td.innerHTML = cellData || '&nbsp;';
+                    tr.appendChild(td);
+                });
+                tbody.appendChild(tr);
+            }
+            prevTable.appendChild(tbody);
+
+            // Synchronize notes
+            const noteGen = document.getElementById('note-general').value.trim();
+            const noteSpec = document.getElementById('note-specific').value.trim();
+            const noteProb = document.getElementById('note-prob').value.trim();
+
+            const wrapGen = document.getElementById('prev-note-general-wrapper');
+            const wrapSpec = document.getElementById('prev-note-specific-wrapper');
+            const wrapProb = document.getElementById('prev-note-prob-wrapper');
+
+            wrapGen.style.display = noteGen ? 'inline' : 'none';
+            document.getElementById('prev-note-general').innerText = noteGen + (noteGen && !noteGen.endsWith('.') ? '.' : '') + ' ';
+
+            wrapSpec.style.display = noteSpec ? 'inline' : 'none';
+            document.getElementById('prev-note-specific').innerHTML = formatNoteSuperscript(noteSpec) + ' ';
+
+            wrapProb.style.display = noteProb ? 'inline' : 'none';
+            document.getElementById('prev-note-prob').innerHTML = formatProbNote(noteProb);
+        }
+        
+        // RegEx parser to automatically italicize statistics symbol variables (e.g. "p")
+        function formatProbNote(text) {
+            if(!text) return "";
+            return text.replace(/\bp\b/g, '<i>p</i>');
+        }
+        
+        // Sub-text formatting engine
+        function formatNoteSuperscript(text) {
+            if(!text) return "";
+            return text.replace(/^([a-z])\s/i, '<sup>$1</sup> ');
+        }
+
+        // Custom Rich-Text Clipboard Copier
+        function copyTableToClipboard() {
+            const range = document.createRange();
+            const target = document.getElementById('export-container');
+            range.selectNode(target);
+            
+            const selection = window.getSelection();
+            selection.removeAllRanges();
+            selection.addRange(range);
+            
+            try {
+                // Execute standard fallback copying mechanisms
+                const successful = document.execCommand('copy');
+                if (successful) {
+                    showToast("APA Table copied with rich formatting!");
+                } else {
+                    showToast("Copy failed, please export directly.");
+                }
+            } catch (err) {
+                showToast("System error copying formatting.");
+            }
+            selection.removeAllRanges(); // Clear selection box highlight
+        }
+
+        // DOC format exporter with MS Word parsing schemas
+        function exportToWord() {
+            const container = document.getElementById('export-container');
+            const content = container.innerHTML;
+
+            const preHtml = `
+                <html xmlns:o='urn:schemas-microsoft-com:office:office' 
+                      xmlns:w='urn:schemas-microsoft-com:office:word' 
+                      xmlns='http://www.w3.org/TR/REC-html40'>
+                <head>
+                    <meta charset='utf-8'>
+                    <title>APA Standardized Table</title>
+                    <style>
+                        body { 
+                            font-family: 'Times New Roman', Times, serif; 
+                            font-size: 12pt; 
+                            color: #000000; 
+                        }
+                        table { 
+                            width: 100%; 
+                            border-collapse: collapse; 
+                            margin-top: 12pt; 
+                            margin-bottom: 12pt; 
+                        }
+                        th, td { 
+                            padding: 8px; 
+                            vertical-align: bottom; 
+                            border: none; 
+                        }
+                        th { 
+                            border-top: 1.5pt solid black; 
+                            border-bottom: 1.5pt solid black; 
+                            font-weight: normal; 
+                            text-align: center;
+                        }
+                        td {
+                            text-align: center;
+                        }
+                        th:first-child, td:first-child { 
+                            text-align: left; 
+                        }
+                        tbody tr:last-child td { 
+                            border-bottom: 1.5pt solid black; 
+                        }
+                    </style>
+                </head>
+                <body>
+            `;
+            const postHtml = "</body></html>";
+            
+            const html = preHtml + content + postHtml;
+            const blob = new Blob(['\ufeff', html], { type: 'application/msword' });
+            const url = URL.createObjectURL(blob);
+            
+            const tableNum = document.getElementById('table-number').value || '1';
+            const filename = `APA_Table_${tableNum}.doc`;
+
+            const downloadLink = document.createElement("a");
+            document.body.appendChild(downloadLink);
+            downloadLink.href = url;
+            downloadLink.download = filename;
+            downloadLink.click();
+            document.body.removeChild(downloadLink);
+            URL.revokeObjectURL(url);
+            showToast("Document saved successfully!");
+        }
+
+        window.onload = init;
+    </script>
+</body>
+</html>
