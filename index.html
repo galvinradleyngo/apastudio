@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>APA Table Formatter & Workspace</title>
+    <title>APA Formatting Studio | 7th Edition</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Playfair+Display:ital,wght@0,600;1,600&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/lucide@latest"></script>
@@ -92,6 +92,31 @@
             background: rgba(255, 255, 255, 0.8);
             backdrop-filter: blur(12px);
         }
+
+        .apa-reference-list {
+            margin-top: 12pt;
+            margin-bottom: 0;
+            padding-left: 0;
+            list-style: none;
+            line-height: 2;
+            font-size: 12pt;
+        }
+
+        .apa-reference-item {
+            margin: 0;
+            padding-left: 0.5in;
+            text-indent: -0.5in;
+        }
+
+        .issue-list {
+            list-style: disc;
+            padding-left: 1rem;
+            margin: 0.25rem 0 0;
+        }
+
+        .issue-list li {
+            margin: 0.125rem 0;
+        }
     </style>
 </head>
 <body class="h-screen flex flex-col overflow-hidden text-slate-800">
@@ -112,21 +137,21 @@
             </div>
             <div>
                 <h1 class="text-lg font-bold bg-gradient-to-r from-slate-900 to-indigo-950 bg-clip-text text-transparent flex items-center gap-2">
-                    APA Table Studio
+                    APA Formatting Studio
                     <span class="text-[10px] font-semibold uppercase tracking-wider bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-full border border-indigo-100">7th Edition</span>
                 </h1>
-                <p class="text-xs text-slate-400">Perfect academic tables in seconds</p>
+                <p class="text-xs text-slate-400">Perfect academic formatting in seconds</p>
             </div>
         </div>
         <div class="flex items-center gap-3">
             <button id="btn-home" onclick="showHome()" class="hidden text-sm font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-50 border border-slate-200 px-4 py-2.5 rounded-xl transition-all duration-200 items-center gap-2">
                 <i data-lucide="grid-3x3" class="w-4 h-4"></i> Change Template
             </button>
-            <button id="btn-copy" onclick="copyTableToClipboard()" class="hidden bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold py-2.5 px-4 rounded-xl border border-slate-200 transition-all duration-200 items-center gap-2">
-                <i data-lucide="copy" class="w-4 h-4"></i> Copy Formatted Table
+            <button id="btn-copy" onclick="copyFormattedContent()" class="hidden bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold py-2.5 px-4 rounded-xl border border-slate-200 transition-all duration-200 items-center gap-2">
+                <i data-lucide="copy" class="w-4 h-4"></i> <span id="btn-copy-label">Copy Formatted Table</span>
             </button>
             <button id="btn-export" onclick="exportToWord()" class="hidden bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold py-2.5 px-5 rounded-xl shadow-lg shadow-blue-500/15 border border-blue-500/10 transition-all duration-200 items-center gap-2">
-                <i data-lucide="download-cloud" class="w-4 h-4"></i> Export to Word
+                <i data-lucide="download-cloud" class="w-4 h-4"></i> <span id="btn-export-label">Export Table to Word</span>
             </button>
         </div>
     </header>
@@ -144,8 +169,19 @@
                         Academic Formatting, <span class="bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">Simplified.</span>
                     </h2>
                     <p class="text-slate-500 text-base leading-relaxed">
-                        Say goodbye to standard MS Word formatting frustrations. Select an APA 7th structural layout, populate your data, and export copy-paste friendly files instantly.
+                        Format APA 7th tables and references in one place. Select a layout or paste your bibliography and export copy-paste friendly files instantly.
                     </p>
+                </div>
+
+                <div onclick="loadBibliographyWorkspace()" class="bg-white border border-slate-200/80 hover:border-emerald-500 hover:shadow-xl hover:shadow-emerald-500/5 rounded-2xl p-6 cursor-pointer transition-all duration-300 flex items-start gap-5 group relative overflow-hidden">
+                    <div class="absolute inset-y-0 left-0 w-1.5 bg-emerald-500 transform scale-y-0 group-hover:scale-y-100 transition-transform duration-300"></div>
+                    <div class="bg-emerald-50 text-emerald-600 p-4 rounded-xl group-hover:bg-emerald-600 group-hover:text-white transition-all duration-300 shrink-0">
+                        <i data-lucide="book-copy" class="w-5 h-5"></i>
+                    </div>
+                    <div class="space-y-1">
+                        <h4 class="font-bold text-slate-800 group-hover:text-emerald-600 transition-colors">Bibliography Formatter</h4>
+                        <p class="text-xs text-slate-400 leading-relaxed">Paste an unarranged reference list and automatically sort entries by first author surname, alphabetize, and apply APA 7 hanging indent formatting.</p>
+                    </div>
                 </div>
                 
                 <!-- Category Blocks -->
@@ -262,6 +298,7 @@
             <!-- Left Side Interactive Control Dock -->
             <div class="w-1/2 bg-white flex flex-col overflow-y-auto border-r border-slate-200 custom-scrollbar">
                 <div class="p-8 space-y-8">
+                    <div id="table-editor-panel" class="space-y-8">
                     
                     <!-- Structural Customizer -->
                     <div class="bg-slate-50 border border-slate-200/80 rounded-2xl p-5 space-y-4">
@@ -371,6 +408,50 @@
                             </div>
                         </div>
                     </div>
+                    </div>
+
+                    <div id="bibliography-editor-panel" class="hidden space-y-6">
+                        <div class="bg-slate-50 border border-slate-200/80 rounded-2xl p-5 space-y-4">
+                            <div class="flex items-center justify-between border-b border-slate-200/60 pb-3">
+                                <h3 class="font-bold text-slate-800 text-sm flex items-center gap-2">
+                                    <i data-lucide="book-text" class="w-4 h-4 text-emerald-600"></i>
+                                    1. Paste Your Bibliography
+                                </h3>
+                                <span class="text-[10px] font-bold uppercase tracking-wider bg-emerald-50 text-emerald-600 border border-emerald-100 px-2.5 py-0.5 rounded-full">APA 7 Reference List</span>
+                            </div>
+                            <textarea id="bibliography-input" rows="14" class="w-full border border-slate-200 rounded-xl p-3 text-sm leading-relaxed focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none transition-all placeholder-slate-400" placeholder="Paste references here. You can paste one per line or as grouped paragraphs."></textarea>
+                            <div class="flex items-center gap-3">
+                                <button onclick="formatBibliography()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2.5 px-4 rounded-xl transition-all duration-200 flex items-center gap-2">
+                                    <i data-lucide="wand-sparkles" class="w-4 h-4"></i>
+                                    Format Bibliography
+                                </button>
+                                <p class="text-xs text-slate-500">Automatically removes list bullets/numbers, arranges entries alphabetically, and applies hanging indent.</p>
+                            </div>
+                        </div>
+
+                        <div class="bg-slate-50 border border-slate-200/80 rounded-2xl p-5 space-y-3">
+                            <h3 class="font-bold text-slate-800 text-sm flex items-center gap-2">
+                                <i data-lucide="info" class="w-4 h-4 text-sky-600"></i>
+                                APA 7 Applied in This Tool
+                            </h3>
+                            <p class="text-xs text-slate-500 leading-relaxed">
+                                This formatter applies reference-list structure rules: entries are sorted by first author surname, rendered as double-spaced lines, and displayed with hanging indents suitable for manuscript references.
+                            </p>
+                        </div>
+
+                        <div class="bg-amber-50 border border-amber-200 rounded-2xl p-5 space-y-3">
+                            <h3 class="font-bold text-amber-900 text-sm flex items-center gap-2">
+                                <i data-lucide="triangle-alert" class="w-4 h-4 text-amber-600"></i>
+                                APA Metadata Warnings
+                            </h3>
+                            <p class="text-xs text-amber-800 leading-relaxed">
+                                These checks flag likely APA 7 issues. Review and correct references manually where needed.
+                            </p>
+                            <div id="bibliography-issues" class="text-xs text-amber-900 leading-relaxed">
+                                No warnings yet. Format your bibliography to run checks.
+                            </div>
+                        </div>
+                    </div>
                     
                     <div class="h-12"></div>
                 </div>
@@ -383,7 +464,7 @@
                     
                     <!-- Paper Workspace Header Controls -->
                     <div class="flex justify-between items-center mb-4 shrink-0">
-                        <span class="text-xs font-extrabold text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                        <span id="preview-mode-label" class="text-xs font-extrabold text-slate-500 uppercase tracking-widest flex items-center gap-2">
                             <span class="w-2 h-2 rounded-full bg-blue-500"></span>
                             Manuscript Paper Preview
                         </span>
@@ -404,7 +485,7 @@
                             <div class="absolute inset-y-0 right-0 w-12 border-l border-dashed border-red-100 pointer-events-none opacity-50"></div>
 
                             <!-- Target HTML Copy/Export Wrapper -->
-                            <div id="export-container" class="apa-preview-container">
+                            <div id="table-export-container" class="apa-preview-container">
                                 
                                 <div style="font-weight: bold; margin-bottom: 0;">Table <span id="prev-num">1</span></div>
                                 <div style="font-style: italic; margin-bottom: 12pt;" id="prev-title">Descriptive Statistics for Study Variables</div>
@@ -427,11 +508,18 @@
 
                             </div>
 
+                            <div id="bibliography-export-container" class="apa-preview-container" style="display: none;">
+                                <div style="text-align: center; font-weight: bold; margin-bottom: 12pt;">References</div>
+                                <div id="bibliography-preview-list" class="apa-reference-list">
+                                    <p class="apa-reference-item">Paste references and click Format Bibliography to generate an APA 7 reference list.</p>
+                                </div>
+                            </div>
+
                         </div>
                     </div>
 
                     <!-- Paper margin disclaimer -->
-                    <p class="text-[11px] text-slate-400 text-center mt-6">
+                    <p id="preview-disclaimer" class="text-[11px] text-slate-400 text-center mt-6">
                         Table styling matches exact APA manuscript guidelines (double-spaced headers, no vertical borders, 1-inch margins).
                     </p>
                 </div>
@@ -444,6 +532,7 @@
         // State Engine
         let gridData = [];
         let gridLinesEnabled = true;
+        let currentMode = 'table';
 
         const templates = {
             blank: [
@@ -486,6 +575,25 @@
             showHome();
         }
 
+        function setMode(mode) {
+            currentMode = mode;
+            const isTableMode = mode === 'table';
+
+            document.getElementById('table-editor-panel').style.display = isTableMode ? 'block' : 'none';
+            document.getElementById('bibliography-editor-panel').style.display = isTableMode ? 'none' : 'block';
+            document.getElementById('table-export-container').style.display = isTableMode ? 'block' : 'none';
+            document.getElementById('bibliography-export-container').style.display = isTableMode ? 'none' : 'block';
+
+            document.getElementById('btn-copy-label').innerText = isTableMode ? 'Copy Formatted Table' : 'Copy Formatted Bibliography';
+            document.getElementById('btn-export-label').innerText = isTableMode ? 'Export Table to Word' : 'Export Bibliography to Word';
+            document.getElementById('preview-mode-label').innerHTML = isTableMode
+                ? '<span class="w-2 h-2 rounded-full bg-blue-500"></span>Manuscript Paper Preview'
+                : '<span class="w-2 h-2 rounded-full bg-emerald-500"></span>Reference List Preview';
+            document.getElementById('preview-disclaimer').innerText = isTableMode
+                ? 'Table styling matches exact APA manuscript guidelines (double-spaced headers, no vertical borders, 1-inch margins).'
+                : 'Reference list uses APA 7 ordering and hanging-indented, double-spaced manuscript styling.';
+        }
+
         function showHome() {
             document.getElementById('home-view').style.display = 'flex';
             document.getElementById('editor-view').style.display = 'none';
@@ -526,6 +634,7 @@
 
         function loadTemplate(type) {
             if (templates[type]) {
+                setMode('table');
                 gridData = JSON.parse(JSON.stringify(templates[type]));
                 
                 if (type === 'correlation') {
@@ -560,6 +669,22 @@
                 showEditor();
                 showToast(`Loaded ${type.replace('qual_', 'Qualitative ').replace('blank', 'Blank').replace('descriptive', 'Descriptives').toUpperCase()} layout.`);
             }
+        }
+
+        function loadBibliographyWorkspace() {
+            const bibliographyInput = document.getElementById('bibliography-input');
+            if (!bibliographyInput.value.trim()) {
+                bibliographyInput.value = [
+                    'Smith, J. A., & Lee, R. T. (2021). Learning analytics in blended classrooms. Journal of Educational Computing, 35(2), 145-162. https://doi.org/10.1000/xyz123',
+                    'Alvarez, P. M. (2019). Student motivation in remote environments. Academic Press.',
+                    'Brown, K. (2023). Reflective pedagogy in higher education. Teaching Review, 18(4), 55-73.'
+                ].join('\n');
+            }
+
+            setMode('bibliography');
+            formatBibliography();
+            showEditor();
+            showToast('Bibliography formatter is ready.');
         }
 
         // Render the high-fidelity inline spreadsheet layout grid
@@ -629,6 +754,10 @@
 
         // Keep preview perfectly synced
         function updatePreview() {
+            if (!gridData.length) {
+                return;
+            }
+
             document.getElementById('prev-num').innerText = document.getElementById('table-number').value || '1';
             document.getElementById('prev-title').innerText = document.getElementById('table-title').value || 'Untitled Table';
 
@@ -690,10 +819,311 @@
             return text.replace(/^([a-z])\s/i, '<sup>$1</sup> ');
         }
 
+        function normalizeReferenceEntry(entry) {
+            return entry
+                .replace(/^\s*(?:\d+[\.)]\s+|[-*•]\s+)/, '')
+                .replace(/\s+/g, ' ')
+                .trim();
+        }
+
+        function looksLikeNewReference(line) {
+            const candidate = normalizeReferenceEntry(line);
+            return /^[A-Z][A-Za-z'\-]+,\s*(?:[A-Z]\.|\()/i.test(candidate);
+        }
+
+        function parseBibliographyEntries(rawText) {
+            const normalized = rawText.replace(/\r\n/g, '\n').trim();
+            if (!normalized) {
+                return [];
+            }
+
+            const blocks = normalized.split(/\n\s*\n+/).map(block => block.trim()).filter(Boolean);
+            const entries = [];
+
+            if (blocks.length > 1) {
+                blocks.forEach(block => {
+                    const entry = normalizeReferenceEntry(block.replace(/\n+/g, ' '));
+                    if (entry) {
+                        entries.push(entry);
+                    }
+                });
+                return entries;
+            }
+
+            const lines = normalized.split('\n').map(line => line.trim()).filter(Boolean);
+            let currentEntry = '';
+
+            lines.forEach(line => {
+                const cleanedLine = normalizeReferenceEntry(line);
+                if (!cleanedLine) {
+                    return;
+                }
+
+                if (!currentEntry) {
+                    currentEntry = cleanedLine;
+                    return;
+                }
+
+                if (looksLikeNewReference(cleanedLine)) {
+                    entries.push(currentEntry);
+                    currentEntry = cleanedLine;
+                } else {
+                    currentEntry += ` ${cleanedLine}`;
+                }
+            });
+
+            if (currentEntry) {
+                entries.push(currentEntry);
+            }
+
+            return entries;
+        }
+
+        function extractFirstAuthorSurname(reference) {
+            const cleaned = normalizeReferenceEntry(reference);
+            const surnameMatch = cleaned.match(/^([A-Za-z'\-]+)/);
+            return surnameMatch ? surnameMatch[1].toLowerCase() : cleaned.toLowerCase();
+        }
+
+        function extractReferenceYear(reference) {
+            const yearMatch = reference.match(/\((\d{4}|n\.d\.)[a-z]?\)/i);
+            if (!yearMatch) {
+                return Number.MAX_SAFE_INTEGER;
+            }
+
+            const yearText = yearMatch[1].toLowerCase();
+            return yearText === 'n.d.' ? 0 : parseInt(yearText, 10);
+        }
+
+        function sortBibliographyEntries(entries) {
+            return [...entries].sort((a, b) => {
+                const authorCompare = extractFirstAuthorSurname(a).localeCompare(extractFirstAuthorSurname(b));
+                if (authorCompare !== 0) {
+                    return authorCompare;
+                }
+
+                const yearCompare = extractReferenceYear(a) - extractReferenceYear(b);
+                if (yearCompare !== 0) {
+                    return yearCompare;
+                }
+
+                return a.localeCompare(b);
+            });
+        }
+
+        function normalizeDoiAndUrlFormatting(reference) {
+            let fixed = reference;
+
+            fixed = fixed.replace(/https?:\/\/(?:dx\.)?doi\.org\/(10\.\S+)/ig, (match, doiPart) => {
+                const cleanedDoi = doiPart.replace(/[.,;:]+$/g, '');
+                return `https://doi.org/${cleanedDoi}`;
+            });
+
+            fixed = fixed.replace(/\bdoi\s*:\s*(10\.\S+)/ig, (match, doiPart) => {
+                const cleanedDoi = doiPart.replace(/[.,;:]+$/g, '');
+                return `https://doi.org/${cleanedDoi}`;
+            });
+
+            fixed = fixed.replace(/\bdoi\s+(10\.\S+)/ig, (match, doiPart) => {
+                const cleanedDoi = doiPart.replace(/[.,;:]+$/g, '');
+                return `https://doi.org/${cleanedDoi}`;
+            });
+
+            fixed = fixed.replace(/(https?:\/\/\S+?)([.,;:])(?=\s|$)/ig, '$1');
+            fixed = fixed.replace(/(https?:\/\/\S+)\.$/ig, '$1');
+
+            return fixed;
+        }
+
+        function normalizeYearAndInitialsFormatting(reference) {
+            let fixed = reference;
+
+            fixed = fixed.replace(/\s+([,.;:])/g, '$1');
+            fixed = fixed.replace(/,\s*/g, ', ');
+            fixed = fixed.replace(/\s*&\s*/g, ' & ');
+
+            fixed = fixed.replace(/\(\s*(\d{4}|n\.d\.)\s*\)/ig, '($1)');
+            fixed = fixed.replace(/(\((?:\d{4}|n\.d\.)[a-z]?\))(?!\.)/ig, '$1.');
+
+            fixed = fixed.replace(/([A-Z])\s*\.\s*([A-Z])\s*\./g, '$1. $2.');
+            fixed = fixed.replace(/([A-Z])\s+\./g, '$1.');
+
+            fixed = fixed.replace(/\s+/g, ' ').trim();
+            return fixed;
+        }
+
+        function applyBibliographyAutoFix(reference) {
+            let fixed = normalizeReferenceEntry(reference);
+            fixed = normalizeYearAndInitialsFormatting(fixed);
+            fixed = normalizeDoiAndUrlFormatting(fixed);
+            fixed = fixed.replace(/\s+/g, ' ').trim();
+            return fixed;
+        }
+
+        function isLikelySentenceCase(titleText) {
+            const trimmed = (titleText || '').trim();
+            if (!trimmed) {
+                return true;
+            }
+
+            const words = trimmed.split(/\s+/).filter(Boolean);
+            if (words.length === 0) {
+                return true;
+            }
+
+            const interiorWords = words.slice(1);
+            let capitalizedCount = 0;
+            interiorWords.forEach(word => {
+                const plain = word.replace(/^["'([{]+|[\])}',.:;!?]+$/g, '');
+                if (/^[A-Z][a-z]/.test(plain)) {
+                    capitalizedCount += 1;
+                }
+            });
+
+            if (interiorWords.length < 3) {
+                return true;
+            }
+
+            return capitalizedCount / interiorWords.length < 0.4;
+        }
+
+        function analyzeReferenceIssues(reference) {
+            const issues = [];
+            const cleaned = normalizeReferenceEntry(reference);
+
+            if (!/^[A-Z][A-Za-z'\-]+,\s*[A-Z]/.test(cleaned)) {
+                issues.push('Author name may not follow APA format (Surname, Initials).');
+            }
+
+            if (!/\((\d{4}|n\.d\.)[a-z]?\)/i.test(cleaned)) {
+                issues.push('Missing or invalid date block (e.g., (2023) or (n.d.)).');
+            }
+
+            if (!/[.!?]\s+[A-Z][^.!?]+\.\s+[A-Z]/.test(cleaned)) {
+                issues.push('Could not clearly detect article/chapter title and source segment punctuation.');
+            }
+
+            const doiMatch = cleaned.match(/(?:https?:\/\/)?(?:dx\.)?doi\.org\/(10\.\S+)/i) || cleaned.match(/\bdoi:\s*(10\.\S+)/i);
+            const hasUrl = /https?:\/\/\S+/i.test(cleaned);
+            if (doiMatch) {
+                if (!/https:\/\/doi\.org\/10\.\S+/i.test(cleaned)) {
+                    issues.push('DOI should use APA format: https://doi.org/10.xxxx/xxxxx');
+                }
+            } else if (hasUrl) {
+                if (!/https?:\/\/\S+/i.test(cleaned)) {
+                    issues.push('URL appears malformed.');
+                }
+            } else {
+                issues.push('No DOI/URL detected. Verify whether one is required for this source.');
+            }
+
+            const titleSourceMatch = cleaned.match(/\((?:\d{4}|n\.d\.)[a-z]?\)\.\s+(.+?)\.\s+(.+)/i);
+            if (titleSourceMatch) {
+                const candidateTitle = titleSourceMatch[1].trim();
+                if (!isLikelySentenceCase(candidateTitle)) {
+                    issues.push('Title may not be in sentence case (APA 7 for works in references).');
+                }
+
+                const sourceSegment = titleSourceMatch[2].trim();
+                if (!/[0-9]/.test(sourceSegment) && !hasUrl && !doiMatch) {
+                    issues.push('Source details may be incomplete (journal/book/publisher/volume/pages).');
+                }
+            } else {
+                issues.push('Could not validate title casing and source structure confidently.');
+            }
+
+            return issues;
+        }
+
+        function renderBibliographyIssues(entries) {
+            const target = document.getElementById('bibliography-issues');
+            target.innerHTML = '';
+
+            if (!entries.length) {
+                target.innerText = 'No warnings yet. Format your bibliography to run checks.';
+                return;
+            }
+
+            const analyzed = entries.map(entry => ({ entry, issues: analyzeReferenceIssues(entry) }));
+            const warningEntries = analyzed.filter(item => item.issues.length > 0);
+
+            if (!warningEntries.length) {
+                target.innerHTML = '<p class="text-emerald-700">No obvious APA metadata issues detected by the automated checks.</p>';
+                return;
+            }
+
+            const summary = document.createElement('p');
+            summary.className = 'font-semibold';
+            summary.innerText = `${warningEntries.length} of ${entries.length} reference${entries.length === 1 ? '' : 's'} flagged for review.`;
+            target.appendChild(summary);
+
+            warningEntries.forEach((item, index) => {
+                const block = document.createElement('div');
+                block.className = 'mt-2 border border-amber-200 bg-white/60 rounded-lg p-2.5';
+
+                const heading = document.createElement('p');
+                heading.className = 'font-semibold';
+                heading.innerText = `Entry ${index + 1}: ${item.entry.slice(0, 90)}${item.entry.length > 90 ? '...' : ''}`;
+                block.appendChild(heading);
+
+                const list = document.createElement('ul');
+                list.className = 'issue-list';
+                item.issues.forEach(issue => {
+                    const li = document.createElement('li');
+                    li.innerText = issue;
+                    list.appendChild(li);
+                });
+                block.appendChild(list);
+                target.appendChild(block);
+            });
+        }
+
+        function updateBibliographyPreview(entries) {
+            const list = document.getElementById('bibliography-preview-list');
+            list.innerHTML = '';
+
+            if (!entries.length) {
+                list.innerHTML = '<p class="apa-reference-item">Paste references and click Format Bibliography to generate an APA 7 reference list.</p>';
+                return;
+            }
+
+            entries.forEach(entry => {
+                const row = document.createElement('p');
+                row.className = 'apa-reference-item';
+                row.innerText = entry;
+                list.appendChild(row);
+            });
+        }
+
+        function formatBibliography() {
+            const rawText = document.getElementById('bibliography-input').value;
+            const parsedEntries = parseBibliographyEntries(rawText);
+            const fixedEntries = parsedEntries.map(applyBibliographyAutoFix);
+            const sortedEntries = sortBibliographyEntries(fixedEntries);
+            updateBibliographyPreview(sortedEntries);
+            renderBibliographyIssues(sortedEntries);
+
+            if (!sortedEntries.length) {
+                showToast('No references found to format.');
+                return;
+            }
+
+            const autoFixedCount = parsedEntries.reduce((count, original, index) => {
+                return count + (normalizeReferenceEntry(original) !== fixedEntries[index] ? 1 : 0);
+            }, 0);
+
+            document.getElementById('bibliography-input').value = sortedEntries.join('\n');
+
+            showToast(`Formatted ${sortedEntries.length} reference${sortedEntries.length === 1 ? '' : 's'} in APA 7 style. Auto-fixed ${autoFixedCount}.`);
+        }
+
         // Custom Rich-Text Clipboard Copier
-        function copyTableToClipboard() {
+        function copyFormattedContent() {
             const range = document.createRange();
-            const target = document.getElementById('export-container');
+            const target = currentMode === 'table'
+                ? document.getElementById('table-export-container')
+                : document.getElementById('bibliography-export-container');
+
             range.selectNode(target);
             
             const selection = window.getSelection();
@@ -704,19 +1134,21 @@
                 // Execute standard fallback copying mechanisms
                 const successful = document.execCommand('copy');
                 if (successful) {
-                    showToast("APA Table copied with rich formatting!");
+                    showToast(currentMode === 'table' ? 'APA table copied with rich formatting!' : 'APA bibliography copied with rich formatting!');
                 } else {
-                    showToast("Copy failed, please export directly.");
+                    showToast('Copy failed, please export directly.');
                 }
             } catch (err) {
-                showToast("System error copying formatting.");
+                showToast('System error copying formatting.');
             }
             selection.removeAllRanges(); // Clear selection box highlight
         }
 
         // DOC format exporter with MS Word parsing schemas
         function exportToWord() {
-            const container = document.getElementById('export-container');
+            const container = currentMode === 'table'
+                ? document.getElementById('table-export-container')
+                : document.getElementById('bibliography-export-container');
             const content = container.innerHTML;
 
             const preHtml = `
@@ -737,6 +1169,12 @@
                             border-collapse: collapse; 
                             margin-top: 12pt; 
                             margin-bottom: 12pt; 
+                        }
+                        .apa-reference-item {
+                            margin: 0;
+                            padding-left: 0.5in;
+                            text-indent: -0.5in;
+                            line-height: 2;
                         }
                         th, td { 
                             padding: 8px; 
@@ -769,7 +1207,7 @@
             const url = URL.createObjectURL(blob);
             
             const tableNum = document.getElementById('table-number').value || '1';
-            const filename = `APA_Table_${tableNum}.doc`;
+            const filename = currentMode === 'table' ? `APA_Table_${tableNum}.doc` : 'APA_References.doc';
 
             const downloadLink = document.createElement("a");
             document.body.appendChild(downloadLink);
@@ -778,7 +1216,7 @@
             downloadLink.click();
             document.body.removeChild(downloadLink);
             URL.revokeObjectURL(url);
-            showToast("Document saved successfully!");
+            showToast(currentMode === 'table' ? 'Table document saved successfully!' : 'Bibliography document saved successfully!');
         }
 
         window.onload = init;
