@@ -1019,6 +1019,56 @@
             };
         }
 
+        function moveAuthorSegmentToFront(reference) {
+            const notes = [];
+            const authorListPattern = /([A-Z][A-Za-z'\-]+,\s+[A-Z][A-Za-z'.\-]+(?:\s+[A-Z][A-Za-z'.\-]+)?(?:,\s*&\s*[A-Z][A-Za-z'\-]+,\s+[A-Z][A-Za-z'.\-]+(?:\s+[A-Z][A-Za-z'.\-]+)?)*)/;
+            const leadingAuthor = reference.match(new RegExp(`^${authorListPattern.source}`));
+            if (leadingAuthor) {
+                return { fixed: reference, notes };
+            }
+
+            const foundAuthor = reference.match(authorListPattern);
+            if (!foundAuthor || foundAuthor.index === undefined) {
+                return { fixed: reference, notes };
+            }
+
+            const authorText = foundAuthor[0].trim();
+            const before = reference.slice(0, foundAuthor.index).trimEnd().replace(/[\s,;:]+$/g, '');
+            const after = reference.slice(foundAuthor.index + authorText.length).trimStart().replace(/^[,;:]+\s*/g, '');
+            const remainder = `${before}${before && after ? '. ' : ''}${after}`.trim();
+            const fixed = `${authorText}. ${remainder}`.replace(/\s+/g, ' ').trim();
+
+            if (fixed !== reference) {
+                notes.push(`Author block moved to front: "${authorText}".`);
+            }
+
+            return { fixed, notes };
+        }
+
+        function ensureDateExists(reference) {
+            if (/\((?:\d{4}|n\.d\.)[a-z]?\)/i.test(reference)) {
+                return { fixed: reference, notes: [] };
+            }
+
+            const notes = [];
+            const leadingAuthorPattern = /^([A-Z][A-Za-z'\-]+,\s+[A-Z][A-Za-z'.\-]+(?:\s+[A-Z][A-Za-z'.\-]+)?(?:,\s*&\s*[A-Z][A-Za-z'\-]+,\s+[A-Z][A-Za-z'.\-]+(?:\s+[A-Z][A-Za-z'.\-]+)?)*)\.?\s*(.*)$/;
+            const authorMatch = reference.match(leadingAuthorPattern);
+
+            if (authorMatch) {
+                const authorText = authorMatch[1].trim();
+                const remainder = (authorMatch[2] || '').replace(/^[.\s]+/, '').trim();
+                const fixed = remainder
+                    ? `${authorText}. (n.d.). ${remainder}`
+                    : `${authorText}. (n.d.).`;
+                notes.push('No date found; inserted (n.d.).');
+                return { fixed: fixed.replace(/\s+/g, ' ').trim(), notes };
+            }
+
+            const fallback = `(n.d.). ${reference}`.replace(/\s+/g, ' ').trim();
+            notes.push('No date found; inserted (n.d.).');
+            return { fixed: fallback, notes };
+        }
+
         function normalizeDoiAndUrlFormatting(reference) {
             let fixed = reference;
 
@@ -1067,6 +1117,14 @@
             const authorNormalization = normalizeAmbiguousLeadAuthor(fixed);
             fixed = authorNormalization.fixed;
             notes.push(...authorNormalization.notes);
+
+            const authorRelocation = moveAuthorSegmentToFront(fixed);
+            fixed = authorRelocation.fixed;
+            notes.push(...authorRelocation.notes);
+
+            const dateInsertion = ensureDateExists(fixed);
+            fixed = dateInsertion.fixed;
+            notes.push(...dateInsertion.notes);
 
             fixed = normalizeYearAndInitialsFormatting(fixed);
             fixed = normalizeDoiAndUrlFormatting(fixed);
