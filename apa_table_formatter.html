@@ -753,16 +753,20 @@
                                 </div>
                             </div>
 
-                            <div id="citation-export-container" class="apa-preview-container" style="display: none;">
-                                <div style="font-weight: bold; margin-bottom: 8pt;">APA 7th Edition Reference</div>
-                                <div class="apa-reference-list" style="margin-bottom: 20pt;">
-                                    <p id="prev-citation-reference" class="apa-reference-item">
-                                        Upload a PDF or enter a link/DOI to generate an APA 7 reference.
-                                    </p>
+                            <div id="citation-preview-wrapper" style="display: none;">
+                                <div style="text-align: center; font-weight: bold; margin-bottom: 12pt; font-family: 'Times New Roman', Times, serif; font-size: 12pt;">Reference</div>
+
+                                <!-- Target citation copy/export wrapper (contains ONLY the reference itself) -->
+                                <div id="citation-export-container" class="apa-preview-container">
+                                    <div class="apa-reference-list" style="margin-top: 0; margin-bottom: 0;">
+                                        <p id="prev-citation-reference" class="apa-reference-item" style="margin: 0;">
+                                            Upload a PDF or enter a link/DOI to generate an APA 7 reference.
+                                        </p>
+                                    </div>
                                 </div>
 
-                                <!-- In-Text Citations Block -->
-                                <div class="border-t border-slate-200 pt-6 mt-8 space-y-4" style="font-family: 'Plus Jakarta Sans', sans-serif;">
+                                <!-- In-Text Citations Block (Placed outside citation-export-container so it cannot be copied with reference) -->
+                                <div id="citation-intext-container" class="border-t border-slate-200 pt-6 mt-8 space-y-4" style="font-family: 'Plus Jakarta Sans', sans-serif;">
                                     <div class="flex items-center justify-between">
                                         <h4 class="text-xs font-extrabold uppercase tracking-widest text-slate-500">In-Text Citation Formats</h4>
                                         <span class="text-[10px] font-semibold text-slate-400">APA 7 Manuscript Standards</span>
@@ -1043,7 +1047,7 @@
 
             document.getElementById('table-export-container').style.display = isTableMode ? 'block' : 'none';
             document.getElementById('bibliography-export-container').style.display = isBibMode ? 'block' : 'none';
-            document.getElementById('citation-export-container').style.display = isCiteMode ? 'block' : 'none';
+            document.getElementById('citation-preview-wrapper').style.display = isCiteMode ? 'block' : 'none';
 
             if (isTableMode) {
                 document.getElementById('btn-copy-label').innerText = 'Copy Formatted Table';
@@ -1799,15 +1803,45 @@
 
         // Custom Rich-Text Clipboard Copier
         function copyFormattedContent() {
-            const range = document.createRange();
-            let target;
-            if (currentMode === 'table') {
-                target = document.getElementById('table-export-container');
-            } else if (currentMode === 'bibliography') {
-                target = document.getElementById('bibliography-export-container');
-            } else {
-                target = document.getElementById('citation-export-container');
+            if (currentMode === 'citation') {
+                const refEl = document.getElementById('prev-citation-reference');
+                if (!refEl) {
+                    showToast('No citation generated yet.');
+                    return;
+                }
+
+                const plainText = (currentCitationPlain || refEl.innerText || '').trim();
+                if (!plainText) {
+                    showToast('No citation generated yet.');
+                    return;
+                }
+
+                // Rich HTML representation with APA 7 hanging indent and Times New Roman
+                const htmlText = `<p style="font-family: 'Times New Roman', Times, serif; font-size: 12pt; line-height: 2; margin: 0; padding-left: 0.5in; text-indent: -0.5in;">${refEl.innerHTML}</p>`;
+
+                if (navigator.clipboard && window.ClipboardItem) {
+                    const blobHtml = new Blob([htmlText], { type: 'text/html' });
+                    const blobText = new Blob([plainText], { type: 'text/plain' });
+                    const item = new ClipboardItem({
+                        'text/html': blobHtml,
+                        'text/plain': blobText
+                    });
+
+                    navigator.clipboard.write([item]).then(() => {
+                        showToast('APA citation copied!');
+                    }).catch(() => {
+                        fallbackCopyCitation(refEl, plainText);
+                    });
+                } else {
+                    fallbackCopyCitation(refEl, plainText);
+                }
+                return;
             }
+
+            const range = document.createRange();
+            const target = currentMode === 'table'
+                ? document.getElementById('table-export-container')
+                : document.getElementById('bibliography-export-container');
 
             range.selectNode(target);
             
@@ -1816,12 +1850,9 @@
             selection.addRange(range);
             
             try {
-                // Execute standard fallback copying mechanisms
                 const successful = document.execCommand('copy');
                 if (successful) {
-                    let msg = 'APA table copied with rich formatting!';
-                    if (currentMode === 'bibliography') msg = 'APA bibliography copied with rich formatting!';
-                    if (currentMode === 'citation') msg = 'APA citation copied with rich formatting!';
+                    const msg = currentMode === 'table' ? 'APA table copied with rich formatting!' : 'APA bibliography copied with rich formatting!';
                     showToast(msg);
                 } else {
                     showToast('Copy failed, please export directly.');
@@ -1829,25 +1860,78 @@
             } catch (err) {
                 showToast('System error copying formatting.');
             }
-            selection.removeAllRanges(); // Clear selection box highlight
+            selection.removeAllRanges();
+        }
+
+        function fallbackCopyCitation(refEl, plainText) {
+            const range = document.createRange();
+            range.selectNodeContents(refEl);
+            const selection = window.getSelection();
+            selection.removeAllRanges();
+            selection.addRange(range);
+            let ok = false;
+            try {
+                ok = document.execCommand('copy');
+            } catch (e) {
+                ok = false;
+            }
+            selection.removeAllRanges();
+
+            if (!ok && plainText) {
+                const ta = document.createElement('textarea');
+                ta.value = plainText;
+                ta.style.position = 'fixed';
+                ta.style.top = '0';
+                ta.style.left = '0';
+                ta.style.opacity = '0';
+                document.body.appendChild(ta);
+                ta.focus();
+                ta.select();
+                try {
+                    ok = document.execCommand('copy');
+                } catch (e) {}
+                document.body.removeChild(ta);
+            }
+
+            showToast(ok ? 'APA citation copied!' : 'Copy failed, please export directly.');
+        }
+
+        function fallbackCopyElement(element, successMsg) {
+            const range = document.createRange();
+            range.selectNode(element);
+            const selection = window.getSelection();
+            selection.removeAllRanges();
+            selection.addRange(range);
+            try {
+                const ok = document.execCommand('copy');
+                showToast(ok ? successMsg : 'Copy failed, please export directly.');
+            } catch (e) {
+                showToast('System error copying formatting.');
+            }
+            selection.removeAllRanges();
         }
 
         // DOC format exporter with MS Word parsing schemas
         function exportToWord() {
-            let container;
+            let content;
             let filename;
             if (currentMode === 'table') {
-                container = document.getElementById('table-export-container');
+                content = document.getElementById('table-export-container').innerHTML;
                 const tableNum = document.getElementById('table-number').value || '1';
                 filename = `APA_Table_${tableNum}.doc`;
             } else if (currentMode === 'bibliography') {
-                container = document.getElementById('bibliography-export-container');
+                content = document.getElementById('bibliography-export-container').innerHTML;
                 filename = 'APA_References.doc';
             } else {
-                container = document.getElementById('citation-export-container');
+                const refEl = document.getElementById('prev-citation-reference');
+                content = `
+                    <div style="font-weight: bold; margin-bottom: 8pt;">References</div>
+                    <div class="apa-reference-list">
+                        <p class="apa-reference-item">${refEl ? refEl.innerHTML : ''}</p>
+                    </div>
+                `;
                 filename = 'APA_Citation.doc';
             }
-            const content = container.innerHTML;
 
             const preHtml = `
                 <html xmlns:o='urn:schemas-microsoft-com:office:office' 
@@ -2377,8 +2461,9 @@
                 setCitationStatus('success', 'Webpage Metadata Extracted', `Extracted details from "${fetchedMeta.siteName || domainName}". Review and verify details.`);
                 showToast('Web citation generated!');
             } else {
-                document.getElementById('cite-title').value = toSentenceCase(titleCandidate || 'Webpage Document');
-                document.getElementById('cite-authors').value = '';
+                const defaultTitle = titleCandidate || (domainName ? `${domainName} Home` : 'Webpage Document');
+                document.getElementById('cite-title').value = toSentenceCase(defaultTitle);
+                document.getElementById('cite-authors').value = isCorporateAuthor(domainName) ? domainName : '';
                 document.getElementById('cite-year').value = yearCandidate || new Date().getFullYear().toString();
                 document.getElementById('cite-monthday').value = monthDayCandidate;
                 document.getElementById('cite-source').value = domainName;
