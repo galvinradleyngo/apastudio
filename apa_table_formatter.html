@@ -621,6 +621,7 @@
                                             <option value="book">Book / Monograph</option>
                                             <option value="webpage">Webpage / Online Article</option>
                                             <option value="report">Report / Working Paper</option>
+                                            <option value="religious">Religious / Foundational Document</option>
                                         </select>
                                     </div>
                                     <div class="col-span-1">
@@ -2336,9 +2337,24 @@
             return false;
         }
 
+        function inferCrossrefSourceType(msg) {
+            const crossrefType = (msg.type || '').toLowerCase();
+            const container = Array.isArray(msg['container-title']) ? msg['container-title'][0] : msg['container-title'];
+
+            if (crossrefType === 'book' || crossrefType === 'monograph') return 'book';
+            if (crossrefType === 'book-chapter' || crossrefType === 'book-part') return 'report';
+            if (crossrefType === 'journal-article' || crossrefType === 'proceedings-article' ||
+                crossrefType === 'journal' || container || msg.volume || msg.issue || msg.page) {
+                return 'journal';
+            }
+            if (crossrefType === 'report' || crossrefType === 'posted-content' || crossrefType === 'standard') {
+                return 'report';
+            }
+            return 'webpage';
+        }
+
         function populateFromCrossref(msg, cleanDoi) {
-            const isBook = msg.type === 'book' || msg.type === 'monograph' || msg.type === 'book-chapter';
-            document.getElementById('cite-type').value = isBook ? 'book' : 'journal';
+            document.getElementById('cite-type').value = inferCrossrefSourceType(msg);
             handleCiteTypeChange();
 
             const rawTitle = Array.isArray(msg.title) ? msg.title[0] : (msg.title || '');
@@ -2371,7 +2387,9 @@
         }
 
         function populateFromDatacite(attrs, cleanDoi) {
-            document.getElementById('cite-type').value = 'journal';
+            const resourceType = ((attrs.types && (attrs.types.resourceTypeGeneral || attrs.types.resourceType)) || '').toLowerCase();
+            const isArticle = resourceType.includes('article') || resourceType.includes('journal');
+            document.getElementById('cite-type').value = isArticle ? 'journal' : 'report';
             handleCiteTypeChange();
 
             const title = attrs.titles && attrs.titles[0] ? attrs.titles[0].title : '';
@@ -2403,6 +2421,13 @@
             }
 
             const domainName = mapDomainToSiteName(parsedUrl.hostname);
+            if (isLaudatoSiUrl(parsedUrl)) {
+                populateLaudatoSiCitation(parsedUrl.href);
+                setCitationStatus('success', 'Laudato si’ Document Recognized', 'Recognized as Pope Francis’ 2015 encyclical and applied the APA religious-document format.');
+                showToast('Laudato si’ citation generated.');
+                return;
+            }
+
             let titleCandidate = deriveTitleFromUrlPath(parsedUrl.pathname);
             let yearCandidate = '';
             let monthDayCandidate = '';
@@ -2461,9 +2486,9 @@
                 setCitationStatus('success', 'Webpage Metadata Extracted', `Extracted details from "${fetchedMeta.siteName || domainName}". Review and verify details.`);
                 showToast('Web citation generated!');
             } else {
-                const defaultTitle = titleCandidate || (domainName ? `${domainName} Home` : 'Webpage Document');
+                const defaultTitle = titleCandidate || (domainName ? `${domainName} home page` : 'Webpage');
                 document.getElementById('cite-title').value = toSentenceCase(defaultTitle);
-                document.getElementById('cite-authors').value = isCorporateAuthor(domainName) ? domainName : '';
+                document.getElementById('cite-authors').value = isCorporateAuthor(domainName) || isKnownInstitutionalSite(parsedUrl.hostname) ? domainName : '';
                 document.getElementById('cite-year').value = yearCandidate || new Date().getFullYear().toString();
                 document.getElementById('cite-monthday').value = monthDayCandidate;
                 document.getElementById('cite-source').value = domainName;
@@ -2472,6 +2497,31 @@
                 setCitationStatus('warning', 'URL Analyzed', `Extracted site and article name from the link. Please review and refine the author and title fields.`);
                 showToast('Citation template generated from link.');
             }
+        }
+
+        function isLaudatoSiUrl(url) {
+            const value = `${url.hostname}${url.pathname}`.toLowerCase();
+            return value.includes('laudato-si') || value.includes('laudato_si') || value.includes('laudato%20si');
+        }
+
+        function populateLaudatoSiCitation(url) {
+            document.getElementById('cite-type').value = 'religious';
+            handleCiteTypeChange();
+            document.getElementById('cite-title').value = 'Laudato si\': On care for our common home';
+            document.getElementById('cite-authors').value = 'Francis, P.';
+            document.getElementById('cite-year').value = '2015';
+            document.getElementById('cite-monthday').value = '';
+            document.getElementById('cite-source').value = 'Vatican Press';
+            document.getElementById('cite-volume').value = '';
+            document.getElementById('cite-issue').value = '';
+            document.getElementById('cite-pages').value = '';
+            document.getElementById('cite-doi-url').value = url;
+            updateCitationPreview();
+        }
+
+        function isKnownInstitutionalSite(hostname) {
+            const host = hostname.replace(/^www\./i, '').toLowerCase();
+            return ['apple.com', 'who.int', 'cdc.gov', 'nih.gov', 'apa.org', 'vatican.va', 'un.org', 'worldbank.org'].includes(host);
         }
 
         function mapDomainToSiteName(hostname) {
@@ -2776,6 +2826,13 @@
                 const pub = item.source ? `${item.source.trim()}.` : '';
                 html = `${authorPrefix}<i>${cleanTitle}</i>.${pub ? ' ' + pub : ''}${doiUrl ? ' ' + doiUrl : ''}`.trim();
                 plain = `${authorPrefix}${cleanTitle}.${pub ? ' ' + pub : ''}${doiUrl ? ' ' + doiUrl : ''}`.trim();
+            } else if (item.type === 'religious') {
+                const authorPrefix = authorsStr ? `${authorsStr} ${dateStr} ` : `${dateStr} `;
+                const cleanTitle = sentenceTitle.replace(/[.!?]+$/, '');
+                const sourceText = item.source ? ` ${item.source.trim()}.` : '';
+                const descriptor = item.descriptor || '[Encyclical]';
+                html = `${authorPrefix}<i>${cleanTitle}</i> ${descriptor}.${sourceText}${doiUrl ? ' ' + doiUrl : ''}`.trim();
+                plain = `${authorPrefix}${cleanTitle} ${descriptor}.${sourceText}${doiUrl ? ' ' + doiUrl : ''}`.trim();
             } else if (item.type === 'webpage') {
                 let authorPrefix = '';
                 const siteName = item.source ? item.source.trim() : '';
@@ -2824,6 +2881,7 @@
                 if (isJournal) sourceLabel.innerText = 'Journal Name (Title Case)';
                 else if (type === 'book') sourceLabel.innerText = 'Publisher Name';
                 else if (isWebpage) sourceLabel.innerText = 'Website / Organization Name';
+                else if (type === 'religious') sourceLabel.innerText = 'Publisher / Religious Institution';
                 else sourceLabel.innerText = 'Publisher / Sponsoring Organization';
             }
 
@@ -2861,6 +2919,7 @@
                 volume,
                 issue,
                 pages,
+                descriptor: type === 'religious' ? '[Encyclical]' : '',
                 doi: doiUrl.includes('10.') && !doiUrl.startsWith('http') ? doiUrl : (doiUrl.startsWith('https://doi.org/') ? doiUrl : ''),
                 url: !doiUrl.startsWith('https://doi.org/') && !doiUrl.startsWith('10.') ? doiUrl : ''
             };
