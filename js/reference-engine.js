@@ -1026,7 +1026,8 @@ function generateApaReference(item) {
         if (editors.text) inPart += ` ${editors.text} (${editors.count > 1 ? 'Eds.' : 'Ed.'}),`;
         if (bookTitle) inPart += ` *${bookTitle}*`;
         if (info) inPart += ` (${info})`;
-        container = `${inPart.replace(/,$/, '')}.${siteName ? ` ${siteName.replace(/\.+$/, '')}.` : ''}`;
+        const inClause = editors.text || bookTitle ? `${inPart.replace(/,$/, '')}.` : '';
+        container = `${inClause}${siteName ? `${inClause ? ' ' : ''}${siteName.replace(/\.+$/, '')}.` : ''}`;
     } else if (type === 'podcast') {
         const show = clean(item.container);
         container = `${show ? `In *${show}*.` : ''}${siteName ? ` ${siteName.replace(/\.+$/, '')}.` : ''}`.trim();

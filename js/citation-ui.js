@@ -697,8 +697,17 @@ function handleCiteTypeChange() {
     show('cite-monthday-wrapper', cfg.fields.includes('monthday'));
     ['container', 'editors', 'edition', 'translator', 'descriptor'].forEach(f => show(`cite-wrap-${f}`, cfg.fields.includes(f)));
     show('cite-wrap-retrieved', cfg.fields.includes('retrieved'), 'flex');
-    const anyExtra = ['container', 'editors', 'edition', 'translator', 'descriptor', 'retrieved'].some(f => cfg.fields.includes(f));
-    show('cite-extra-fields', anyExtra, 'grid');
+    const anyExtra = ['container', 'editors'].some(f => cfg.fields.includes(f));
+    show('cite-extra-fields', anyExtra || ['edition', 'translator', 'descriptor', 'retrieved'].some(f => cfg.fields.includes(f)), 'grid');
+    // Rarely needed options stay folded away unless they already hold a value.
+    const optional = ['edition', 'translator', 'descriptor', 'retrieved'];
+    show('cite-more-options', optional.some(f => cfg.fields.includes(f)), 'block');
+    const more = document.getElementById('cite-more-options');
+    if (more) {
+        const filled = ['cite-edition', 'cite-translator', 'cite-descriptor'].some(id => (document.getElementById(id) || {}).value)
+            || (document.getElementById('cite-retrieved-on') || {}).checked;
+        more.open = !!filled;
+    }
 
     const sourceLabel = document.getElementById('cite-source-label');
     if (sourceLabel) sourceLabel.innerText = cfg.source;
@@ -758,16 +767,17 @@ function updateCitationPreview() {
         url: doiMatch ? '' : (/^(?:www\.)\S+$/i.test(doiUrl) ? `https://${doiUrl}` : doiUrl)
     };
 
-    const formatted = generateApaReference(item);
+    const isEmptyForm = !title && !authorsRaw && !year && !source && !doiUrl;
+    const formatted = isEmptyForm ? { html: '', plain: '', marked: '' } : generateApaReference(item);
     currentCitationPlain = formatted.plain;
     currentCitationMarked = formatted.marked;
 
     const refEl = document.getElementById('prev-citation-reference');
     if (refEl) {
-        refEl.innerHTML = formatted.html || 'Complete the metadata fields to preview your APA citation.';
+        refEl.innerHTML = formatted.html || '<span style="color:#94a3b8">Paste a link or DOI on the left, or upload a PDF, and your reference will appear here.</span>';
     }
 
-    const inText = formatInTextCitation(item.authors, year);
+    const inText = isEmptyForm ? { parenthetical: '—', narrative: '—' } : formatInTextCitation(item.authors, year);
     const parentheticalEl = document.getElementById('prev-citation-parenthetical');
     const narrativeEl = document.getElementById('prev-citation-narrative');
     if (parentheticalEl) parentheticalEl.innerText = inText.parenthetical;
