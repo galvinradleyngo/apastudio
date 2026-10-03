@@ -211,6 +211,61 @@ const check = async (name, fn) => { try { await fn(); console.log('ok  -', name)
     assert.ok(xml.includes('N = 250.') && /<w:i\/>[^]*?<w:t[^>]*>p<\/w:t>/.test(xml), 'notes with italic p');
   });
 
+  // ── Citation generator layout ────────────────────────────────────────────
+  await check('citation workspace opens empty on the Web Link tab with a two-pane layout', async () => {
+    const r = await page.evaluate(() => {
+      resetCitationForm();
+      document.getElementById('cite-type').value = 'journal';
+      loadCitationWorkspace();
+      const visible = id => document.getElementById(id).offsetParent !== null;
+      return {
+        panes: document.getElementById('editor-view').children.length,
+        title: document.getElementById('cite-title').value,
+        linkTab: !document.getElementById('citation-link-tab').classList.contains('hidden'),
+        pdfTab: !document.getElementById('citation-pdf-tab').classList.contains('hidden'),
+        statusHidden: document.getElementById('citation-status-card').classList.contains('hidden'),
+        placeholder: document.getElementById('prev-citation-reference').innerText,
+        intext: document.getElementById('prev-citation-parenthetical').innerText,
+        moreVisible: visible('cite-more-options')
+      };
+    });
+    assert.strictEqual(r.panes, 2, 'left and right panes must be siblings');
+    assert.strictEqual(r.title, '', 'no sample citation preloaded');
+    assert.ok(r.linkTab && !r.pdfTab, 'Web Link tab first');
+    assert.ok(r.statusHidden, 'no stale status banner');
+    assert.ok(/Paste a link or DOI/.test(r.placeholder), r.placeholder);
+    assert.strictEqual(r.intext, '—');
+    assert.strictEqual(r.moreVisible, false, 'journals have no optional extras');
+  });
+  await check('optional fields are folded into More options and open when filled', async () => {
+    const r = await page.evaluate(() => {
+      setCiteTypeFromSource('book');
+      const el = document.getElementById('cite-more-options');
+      const closedWhenEmpty = !el.open;
+      document.getElementById('cite-edition').value = '2nd';
+      handleCiteTypeChange();
+      return { shown: el.style.display !== 'none', closedWhenEmpty, openWhenFilled: el.open };
+    });
+    assert.ok(r.shown && r.closedWhenEmpty && r.openWhenFilled, JSON.stringify(r));
+  });
+  await check('chapter with no container does not print a dangling "In."', async () => {
+    const out = await page.evaluate(() => generateApaReference({ type: 'chapter', title: 'A chapter', authors: ['Doe, J.'], year: '2020', source: 'Press' }).marked);
+    assert.strictEqual(out, 'Doe, J. (2020). A chapter. Press.');
+  });
+  await check('actions sit next to the preview: copy reference and add to bibliography', async () => {
+    const r = await page.evaluate(() => {
+      document.getElementById('bibliography-input').value = '';
+      resetCitationForm();
+      document.getElementById('cite-type').value = 'book';
+      document.getElementById('cite-title').value = 'A book'; document.getElementById('cite-authors').value = 'Doe, J.'; document.getElementById('cite-year').value = '2001'; document.getElementById('cite-source').value = 'Press';
+      updateCitationPreview();
+      const btn = [...document.querySelectorAll('#citation-preview-wrapper button')].find(b => /Add to bibliography/i.test(b.innerText));
+      btn.click();
+      return document.getElementById('bibliography-input').value;
+    });
+    assert.ok(r.includes('*A book*'), r);
+  });
+
   // ── Accessibility basics ─────────────────────────────────────────────────
   await check('a11y: labels linked to controls, live regions present', async () => {
     const r = await page.evaluate(() => ({

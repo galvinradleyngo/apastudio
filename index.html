@@ -148,7 +148,7 @@
 <body class="h-screen flex flex-col overflow-hidden text-slate-800">
 
     <!-- Toast Notification system -->
-    <div id="toast" role="status" aria-live="polite" class="fixed top-6 right-6 z-50 transform translate-y-12 opacity-0 pointer-events-none transition-all duration-300 flex items-center gap-3 bg-slate-900 text-white px-5 py-3.5 rounded-xl shadow-xl border border-slate-800 text-sm">
+    <div id="toast" role="status" aria-live="polite" class="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 transform translate-y-12 opacity-0 pointer-events-none transition-all duration-300 flex items-center gap-3 bg-slate-900 text-white px-5 py-3.5 rounded-xl shadow-xl border border-slate-800 text-sm">
         <div class="bg-emerald-500/20 text-emerald-400 p-1 rounded-lg">
             <i data-lucide="check" class="w-4 h-4"></i>
         </div>
@@ -550,40 +550,39 @@
                                     <i data-lucide="quote" class="w-4 h-4 text-indigo-600"></i>
                                     1. Choose Citation Source
                                 </h3>
-                                <span class="text-[10px] font-bold uppercase tracking-wider bg-indigo-50 text-indigo-600 border border-indigo-100 px-2.5 py-0.5 rounded-full">APA 7th Edition</span>
                             </div>
 
                             <!-- Source Tabs -->
                             <div class="flex p-1 bg-slate-200/70 rounded-xl gap-1">
-                                <button id="tab-btn-pdf" onclick="switchCitationTab('pdf')" class="flex-1 py-2 px-3 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-2 bg-white text-indigo-600 shadow-sm">
-                                    <i data-lucide="file-up" class="w-4 h-4"></i> Upload PDF File
-                                </button>
-                                <button id="tab-btn-link" onclick="switchCitationTab('link')" class="flex-1 py-2 px-3 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-2 text-slate-600 hover:text-slate-900">
+                                <button id="tab-btn-link" onclick="switchCitationTab('link')" class="flex-1 py-2 px-3 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-2 bg-white text-indigo-600 shadow-sm">
                                     <i data-lucide="link-2" class="w-4 h-4"></i> Web Link / DOI
+                                </button>
+                                <button id="tab-btn-pdf" onclick="switchCitationTab('pdf')" class="flex-1 py-2 px-3 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-2 text-slate-600 hover:text-slate-900">
+                                    <i data-lucide="file-up" class="w-4 h-4"></i> Upload PDF File
                                 </button>
                             </div>
 
                             <!-- Tab 1: PDF Upload -->
-                            <div id="citation-pdf-tab" class="space-y-4">
+                            <div id="citation-pdf-tab" class="hidden space-y-4">
                                 <div id="pdf-dropzone" onclick="document.getElementById('pdf-file-input').click()"
-                                    class="border-2 border-dashed border-slate-300 hover:border-indigo-500 hover:bg-indigo-50/20 rounded-2xl p-8 flex flex-col items-center justify-center text-center cursor-pointer transition-all duration-200 group">
+                                    class="border-2 border-dashed border-slate-300 hover:border-indigo-500 hover:bg-indigo-50/20 rounded-2xl p-5 flex flex-col items-center justify-center text-center cursor-pointer transition-all duration-200 group">
                                     <input type="file" id="pdf-file-input" accept=".pdf" class="hidden" onchange="handlePdfFileInput(event)">
-                                    <div class="bg-indigo-50 group-hover:bg-indigo-100 text-indigo-600 p-4 rounded-2xl mb-3 transition-colors">
-                                        <i data-lucide="file-text" class="w-8 h-8"></i>
+                                    <div class="bg-indigo-50 group-hover:bg-indigo-100 text-indigo-600 p-2.5 rounded-xl mb-2 transition-colors">
+                                        <i data-lucide="file-text" class="w-5 h-5"></i>
                                     </div>
                                     <p class="text-sm font-bold text-slate-800 group-hover:text-indigo-600 transition-colors">
                                         Click to upload or drag & drop a PDF
                                     </p>
                                     <p class="text-xs text-slate-400 mt-1 max-w-sm">
-                                        Extracts DOI, title, authors, publication date, and journal information directly in your browser.
+                                        Reads the DOI, title and authors in your browser; nothing is uploaded.
                                     </p>
                                 </div>
                             </div>
 
                             <!-- Tab 2: Web Link / DOI -->
-                            <div id="citation-link-tab" class="hidden space-y-4">
+                            <div id="citation-link-tab" class="space-y-4">
                                 <div>
-                                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Web Link or DOI</label>
+                                    <label class="block text-xs font-semibold text-slate-600 mb-1">Web Link or DOI</label>
                                     <div class="flex gap-2">
                                         <input type="text" id="citation-url-input"
                                             placeholder="e.g. 10.1038/s41586-020-2649-2 or https://..."
@@ -611,12 +610,6 @@
                                     <p id="citation-status-desc" class="mt-0.5 opacity-90"></p>
                                 </div>
                             </div>
-                            <p id="citation-prov-legend" class="hidden text-[11px] text-slate-500 mt-2">
-                                Field markers:
-                                <span class="inline-block w-2 h-2 rounded-sm align-middle" style="background:#10b981"></span> found in source &nbsp;
-                                <span class="inline-block w-2 h-2 rounded-sm align-middle" style="background:#f59e0b"></span> guessed from link &nbsp;
-                                <span class="inline-block w-2 h-2 rounded-sm align-middle" style="background:#f43f5e"></span> missing, please add
-                            </p>
                         </div>
 
                         <!-- Extracted / Editable Metadata Form -->
@@ -624,17 +617,23 @@
                             <div class="flex items-center justify-between border-b border-slate-200/60 pb-3">
                                 <h3 class="font-bold text-slate-800 text-sm flex items-center gap-2">
                                     <i data-lucide="sliders-horizontal" class="w-4 h-4 text-indigo-600"></i>
-                                    2. Review & Edit Metadata
+                                    2. Review &amp; Edit Metadata
                                 </h3>
                                 <button onclick="resetCitationForm()" class="text-xs text-slate-400 hover:text-rose-600 transition flex items-center gap-1">
                                     <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i> Clear
                                 </button>
                             </div>
+                            <p id="citation-prov-legend" class="hidden text-[11px] text-slate-500 -mt-1">
+                                Field markers:
+                                <span class="inline-block w-2 h-2 rounded-sm align-middle" style="background:#10b981"></span> found in source &nbsp;
+                                <span class="inline-block w-2 h-2 rounded-sm align-middle" style="background:#f59e0b"></span> guessed from link &nbsp;
+                                <span class="inline-block w-2 h-2 rounded-sm align-middle" style="background:#f43f5e"></span> missing, please add
+                            </p>
 
                             <div class="space-y-4">
                                 <div class="grid grid-cols-3 gap-4">
                                     <div class="col-span-2">
-                                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Source Type</label>
+                                        <label class="block text-xs font-semibold text-slate-600 mb-1">Source Type</label>
                                         <select id="cite-type" onchange="handleCiteTypeChange()" class="w-full border border-slate-200 rounded-xl p-3 text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all bg-white">
                                             <option value="journal">Journal Article</option>
                                             <option value="book">Book / Monograph</option>
@@ -652,14 +651,14 @@
                                         </select>
                                     </div>
                                     <div class="col-span-1">
-                                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Year</label>
+                                        <label class="block text-xs font-semibold text-slate-600 mb-1">Year</label>
                                         <input type="text" id="cite-year" placeholder="e.g. 2024" oninput="updateCitationPreview()" class="w-full border border-slate-200 rounded-xl p-3 text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all bg-white">
                                     </div>
                                 </div>
 
                                 <div>
                                     <div class="flex items-center justify-between mb-1.5">
-                                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider">Title of Work</label>
+                                        <label class="block text-xs font-semibold text-slate-600">Title of Work</label>
                                         <button type="button" onclick="autoApplySentenceCaseToTitle()" class="text-[11px] text-indigo-600 hover:text-indigo-800 font-semibold flex items-center gap-1">
                                             <i data-lucide="wand-2" class="w-3 h-3"></i> Apply APA Sentence Case
                                         </button>
@@ -669,32 +668,31 @@
 
                                 <div>
                                     <div class="flex items-center justify-between mb-1.5">
-                                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider">Authors</label>
-                                        <span class="text-[10px] text-slate-400">e.g., Smith, J. A., & Davis, M.</span>
+                                        <label class="block text-xs font-semibold text-slate-600">Authors</label>
                                     </div>
                                     <input type="text" id="cite-authors" placeholder="Smith, J. A., & Davis, M." oninput="updateCitationPreview()" class="w-full border border-slate-200 rounded-xl p-3 text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all bg-white">
                                 </div>
 
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div>
-                                        <label id="cite-source-label" class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Journal Name</label>
+                                        <label id="cite-source-label" class="block text-xs font-semibold text-slate-600 mb-1">Journal Name</label>
                                         <input type="text" id="cite-source" placeholder="e.g. Nature or Academic Press" oninput="updateCitationPreview()" class="w-full border border-slate-200 rounded-xl p-3 text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all bg-white">
                                     </div>
                                     <div id="cite-monthday-wrapper" class="hidden">
-                                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Month, Day (Webpage)</label>
+                                        <label class="block text-xs font-semibold text-slate-600 mb-1">Month, Day (Webpage)</label>
                                         <input type="text" id="cite-monthday" placeholder="e.g. October 14" oninput="updateCitationPreview()" class="w-full border border-slate-200 rounded-xl p-3 text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all bg-white">
                                     </div>
                                     <div id="cite-journal-meta-wrapper" class="grid grid-cols-3 gap-2">
                                         <div id="cite-wrap-volume">
-                                            <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Volume</label>
+                                            <label class="block text-xs font-semibold text-slate-600 mb-1">Volume</label>
                                             <input type="text" id="cite-volume" placeholder="585" oninput="updateCitationPreview()" class="w-full border border-slate-200 rounded-xl p-3 text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all bg-white">
                                         </div>
                                         <div id="cite-wrap-issue">
-                                            <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Issue</label>
+                                            <label class="block text-xs font-semibold text-slate-600 mb-1">Issue</label>
                                             <input type="text" id="cite-issue" placeholder="7825" oninput="updateCitationPreview()" class="w-full border border-slate-200 rounded-xl p-3 text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all bg-white">
                                         </div>
                                         <div id="cite-wrap-pages">
-                                            <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Pages</label>
+                                            <label class="block text-xs font-semibold text-slate-600 mb-1">Pages</label>
                                             <input type="text" id="cite-pages" placeholder="357-362" oninput="updateCitationPreview()" class="w-full border border-slate-200 rounded-xl p-3 text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all bg-white">
                                         </div>
                                     </div>
@@ -702,23 +700,26 @@
 
                                 <div id="cite-extra-fields" class="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div id="cite-wrap-container" class="hidden md:col-span-2">
-                                        <label id="cite-container-label" for="cite-container" class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Container Title</label>
+                                        <label id="cite-container-label" for="cite-container" class="block text-xs font-semibold text-slate-600 mb-1">Container Title</label>
                                         <input type="text" id="cite-container" oninput="updateCitationPreview()" class="w-full border border-slate-200 rounded-xl p-3 text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all bg-white">
                                     </div>
                                     <div id="cite-wrap-editors" class="hidden md:col-span-2">
-                                        <label for="cite-editors" class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Editors</label>
+                                        <label for="cite-editors" class="block text-xs font-semibold text-slate-600 mb-1">Editors</label>
                                         <input type="text" id="cite-editors" placeholder="Smith, J. A., & Davis, M." oninput="updateCitationPreview()" class="w-full border border-slate-200 rounded-xl p-3 text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all bg-white">
                                     </div>
+                                    <details id="cite-more-options" class="md:col-span-2 rounded-xl border border-slate-200 bg-white/60 px-4 py-2.5">
+                                        <summary class="cursor-pointer text-xs font-semibold text-slate-600">More options</summary>
+                                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-3 pb-1">
                                     <div id="cite-wrap-edition" class="hidden">
-                                        <label id="cite-edition-label" for="cite-edition" class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Edition</label>
+                                        <label id="cite-edition-label" for="cite-edition" class="block text-xs font-semibold text-slate-600 mb-1">Edition</label>
                                         <input type="text" id="cite-edition" placeholder="2nd" oninput="updateCitationPreview()" class="w-full border border-slate-200 rounded-xl p-3 text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all bg-white">
                                     </div>
                                     <div id="cite-wrap-translator" class="hidden">
-                                        <label for="cite-translator" class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Translator</label>
+                                        <label for="cite-translator" class="block text-xs font-semibold text-slate-600 mb-1">Translator</label>
                                         <input type="text" id="cite-translator" placeholder="J. A. Smith" oninput="updateCitationPreview()" class="w-full border border-slate-200 rounded-xl p-3 text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all bg-white">
                                     </div>
                                     <div id="cite-wrap-descriptor" class="hidden">
-                                        <label for="cite-descriptor" class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Format Description (optional)</label>
+                                        <label for="cite-descriptor" class="block text-xs font-semibold text-slate-600 mb-1">Format Description (optional)</label>
                                         <input type="text" id="cite-descriptor" oninput="updateCitationPreview()" class="w-full border border-slate-200 rounded-xl p-3 text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all bg-white">
                                     </div>
                                     <div id="cite-wrap-retrieved" class="hidden md:col-span-2 flex flex-wrap items-center gap-3">
@@ -728,24 +729,15 @@
                                         </label>
                                         <input type="text" id="cite-retrieved-date" aria-label="Retrieval date" oninput="updateCitationPreview()" class="w-48 border border-slate-200 rounded-xl p-2 text-sm bg-white">
                                     </div>
+                                        </div>
+                                    </details>
                                 </div>
 
                                 <div>
-                                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">DOI or URL</label>
+                                    <label class="block text-xs font-semibold text-slate-600 mb-1">DOI or URL</label>
                                     <input type="text" id="cite-doi-url" placeholder="https://doi.org/... or https://..." oninput="updateCitationPreview()" class="w-full border border-slate-200 rounded-xl p-3 text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all bg-white">
                                 </div>
                             </div>
-                        </div>
-
-                        <!-- Integration with Bibliography -->
-                        <div class="bg-indigo-50/70 border border-indigo-200/80 rounded-2xl p-5 flex items-center justify-between gap-4">
-                            <div>
-                                <h4 class="text-sm font-bold text-indigo-950">Add to your Bibliography list?</h4>
-                                <p class="text-xs text-indigo-700 mt-0.5">Appends this citation directly to the Bibliography Formatter so you can format and sort your entire reference section together.</p>
-                            </div>
-                            <button onclick="addCitationToBibliography()" class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2.5 px-4 rounded-xl transition-all shadow-md shadow-indigo-500/15 flex items-center gap-2 shrink-0 text-xs">
-                                <i data-lucide="plus" class="w-4 h-4"></i> Add to Bibliography
-                            </button>
                         </div>
                     </div>
                     
@@ -823,36 +815,32 @@
                                     </div>
                                 </div>
 
-                                <!-- In-Text Citations Block (Placed outside citation-export-container so it cannot be copied with reference) -->
-                                <div id="citation-intext-container" class="border-t border-slate-200 pt-6 mt-8 space-y-4" style="font-family: 'Plus Jakarta Sans', sans-serif;">
-                                    <div class="flex items-center justify-between">
-                                        <h4 class="text-xs font-extrabold uppercase tracking-widest text-slate-500">In-Text Citation Formats</h4>
-                                        <span class="text-[10px] font-semibold text-slate-400">APA 7 Manuscript Standards</span>
-                                    </div>
-                                    
-                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        <div class="bg-slate-50 border border-slate-200/80 rounded-xl p-4 flex flex-col justify-between">
-                                            <div>
-                                                <span class="text-[10px] font-bold uppercase tracking-wider text-slate-500">Parenthetical Citation</span>
-                                                <p id="prev-citation-parenthetical" class="text-sm font-semibold text-slate-900 mt-1 font-mono bg-white p-2.5 rounded-lg border border-slate-200 select-all">
-                                                    (Author, Year)
-                                                </p>
-                                            </div>
-                                            <button onclick="copyInTextCitation('parenthetical')" class="mt-3 text-xs font-semibold text-indigo-600 hover:text-indigo-800 flex items-center gap-1.5 self-start">
-                                                <i data-lucide="copy" class="w-3.5 h-3.5"></i> Copy Parenthetical
-                                            </button>
-                                        </div>
+                                <!-- Actions and in-text citations (outside citation-export-container so they are never copied with the reference) -->
+                                <div class="flex flex-wrap items-center gap-2 mt-4" style="font-family: 'Plus Jakarta Sans', sans-serif;">
+                                    <button type="button" onclick="copyFormattedContent()" class="bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold px-3.5 py-2 rounded-lg flex items-center gap-1.5">
+                                        <i data-lucide="copy" class="w-3.5 h-3.5"></i> Copy reference
+                                    </button>
+                                    <button type="button" onclick="addCitationToBibliography()" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold px-3.5 py-2 rounded-lg flex items-center gap-1.5">
+                                        <i data-lucide="plus" class="w-3.5 h-3.5"></i> Add to bibliography
+                                    </button>
+                                </div>
 
-                                        <div class="bg-slate-50 border border-slate-200/80 rounded-xl p-4 flex flex-col justify-between">
-                                            <div>
-                                                <span class="text-[10px] font-bold uppercase tracking-wider text-slate-500">Narrative Citation</span>
-                                                <p id="prev-citation-narrative" class="text-sm font-semibold text-slate-900 mt-1 font-mono bg-white p-2.5 rounded-lg border border-slate-200 select-all">
-                                                    Author (Year)
-                                                </p>
+                                <div id="citation-intext-container" class="border-t border-slate-200 pt-4 mt-6 space-y-3" style="font-family: 'Plus Jakarta Sans', sans-serif;">
+                                    <h4 class="text-xs font-bold text-slate-600">In-text citations</h4>
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                        <div>
+                                            <span class="text-[11px] font-semibold text-slate-500">Parenthetical</span>
+                                            <div class="flex items-center gap-2 mt-1">
+                                                <p id="prev-citation-parenthetical" class="flex-1 min-w-0 text-sm font-semibold text-slate-900 font-mono bg-slate-50 px-2.5 py-2 rounded-lg border border-slate-200 select-all">(Author, Year)</p>
+                                                <button type="button" onclick="copyInTextCitation('parenthetical')" aria-label="Copy parenthetical citation" class="text-xs font-semibold text-indigo-600 hover:text-indigo-800 shrink-0">Copy</button>
                                             </div>
-                                            <button onclick="copyInTextCitation('narrative')" class="mt-3 text-xs font-semibold text-indigo-600 hover:text-indigo-800 flex items-center gap-1.5 self-start">
-                                                <i data-lucide="copy" class="w-3.5 h-3.5"></i> Copy Narrative
-                                            </button>
+                                        </div>
+                                        <div>
+                                            <span class="text-[11px] font-semibold text-slate-500">Narrative</span>
+                                            <div class="flex items-center gap-2 mt-1">
+                                                <p id="prev-citation-narrative" class="flex-1 min-w-0 text-sm font-semibold text-slate-900 font-mono bg-slate-50 px-2.5 py-2 rounded-lg border border-slate-200 select-all">Author (Year)</p>
+                                                <button type="button" onclick="copyInTextCitation('narrative')" aria-label="Copy narrative citation" class="text-xs font-semibold text-indigo-600 hover:text-indigo-800 shrink-0">Copy</button>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>

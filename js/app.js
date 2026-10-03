@@ -49,6 +49,8 @@ function setMode(mode) {
     document.getElementById('table-export-container').style.display = isTableMode ? 'block' : 'none';
     document.getElementById('bibliography-export-container').style.display = isBibMode ? 'block' : 'none';
     document.getElementById('citation-preview-wrapper').style.display = isCiteMode ? 'block' : 'none';
+    const gridToggle = document.querySelector('[onclick="toggleGridLineHelper()"]');
+    if (gridToggle) gridToggle.style.display = isTableMode ? '' : 'none';
 
     if (isTableMode) {
         document.getElementById('btn-copy-label').innerText = 'Copy Formatted Table';
@@ -111,10 +113,8 @@ function openTableTemplates() {
 function loadCitationWorkspace() {
     setMode('citation');
     showEditor();
-    if (!document.getElementById('cite-title').value.trim()) {
-        loadSampleCitation('nature', false);
-    } else {
-        updateCitationPreview();
-    }
-    showToast('Citation generator is ready.');
+    switchCitationTab('link');
+    handleCiteTypeChange();
+    const urlInput = document.getElementById('citation-url-input');
+    if (urlInput && !document.getElementById('cite-title').value.trim()) urlInput.focus();
 }
