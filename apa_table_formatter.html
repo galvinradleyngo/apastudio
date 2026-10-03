@@ -158,19 +158,19 @@
     <header class="bg-white/80 backdrop-blur-md border-b border-slate-200/80 px-8 py-4 flex justify-between items-center shrink-0 z-20">
         <div class="flex items-center gap-3 cursor-pointer" onclick="showHome()" title="Back to home">
             <div class="bg-gradient-to-tr from-blue-600 to-indigo-600 text-white p-2.5 rounded-xl shadow-md shadow-blue-500/10">
-                <i data-lucide="table-properties" class="w-5 h-5"></i>
+                <i data-lucide="graduation-cap" class="w-5 h-5"></i>
             </div>
             <div>
                 <h1 class="text-lg font-bold bg-gradient-to-r from-slate-900 to-indigo-950 bg-clip-text text-transparent flex items-center gap-2">
                     APA Formatting Studio
                     <span class="text-[10px] font-semibold uppercase tracking-wider bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-full border border-indigo-100">7th Edition</span>
                 </h1>
-                <p class="text-xs text-slate-400">Perfect academic formatting in seconds</p>
+                <p class="text-xs text-slate-400">Citations, reference lists and tables</p>
             </div>
         </div>
         <div class="flex items-center gap-3">
             <button id="btn-home" onclick="showHome()" class="hidden text-sm font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-50 border border-slate-200 px-4 py-2.5 rounded-xl transition-all duration-200 items-center gap-2">
-                <i data-lucide="grid-3x3" class="w-4 h-4"></i> Change Template
+                <i data-lucide="home" class="w-4 h-4"></i> Home
             </button>
             <button id="btn-copy" onclick="copyFormattedContent()" class="hidden bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold py-2.5 px-4 rounded-xl border border-slate-200 transition-all duration-200 items-center gap-2">
                 <i data-lucide="copy" class="w-4 h-4"></i> <span id="btn-copy-label">Copy Formatted Table</span>
@@ -185,173 +185,159 @@
     <main class="flex-1 flex overflow-hidden relative">
         
         <!-- Dashboard Home View (Template Selection Workspace) -->
-        <div id="home-view" class="absolute inset-0 bg-slate-50/50 z-30 flex flex-col items-center overflow-y-auto custom-scrollbar p-12">
-            <div class="max-w-5xl w-full space-y-12">
-                
-                <!-- Welcome/Hero Area -->
-                <div class="text-center space-y-4 max-w-2xl mx-auto">
+        <div id="home-view" class="absolute inset-0 bg-slate-50/50 z-30 flex flex-col items-center overflow-y-auto custom-scrollbar p-6 md:p-12">
+            <div class="max-w-5xl w-full space-y-10">
+
+                <!-- Hero -->
+                <div class="text-center space-y-3 max-w-2xl mx-auto">
                     <h2 class="text-4xl font-extrabold tracking-tight text-slate-900">
-                        Academic Formatting, <span class="bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">Simplified.</span>
+                        APA 7 Formatting, <span class="bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">Simplified.</span>
                     </h2>
                     <p class="text-slate-500 text-base leading-relaxed">
-                        Format APA 7th tables and references in one place. Select a layout or paste your bibliography and export copy-paste friendly files instantly.
+                        Generate citations, tidy your reference list, and build APA tables, then copy or export to Word.
                     </p>
                 </div>
 
-                <div class="space-y-4">
-                    <h3 class="text-sm font-extrabold uppercase tracking-widest text-slate-500 text-center">Choose What You Need to Format</h3>
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        <div onclick="focusTableTemplates()" class="bg-white border border-slate-200/80 hover:border-blue-500 hover:shadow-xl hover:shadow-blue-500/5 rounded-2xl p-6 cursor-pointer transition-all duration-300 flex items-start gap-5 group relative overflow-hidden">
-                            <div class="absolute inset-y-0 left-0 w-1.5 bg-blue-500 transform scale-y-0 group-hover:scale-y-100 transition-transform duration-300"></div>
-                            <div class="bg-blue-50 text-blue-600 p-4 rounded-xl group-hover:bg-blue-600 group-hover:text-white transition-all duration-300 shrink-0">
-                                <i data-lucide="table-properties" class="w-5 h-5"></i>
-                            </div>
-                            <div class="space-y-1">
-                                <h4 class="font-bold text-slate-800 group-hover:text-blue-600 transition-colors">Table Formatter</h4>
-                                <p class="text-xs text-slate-400 leading-relaxed">Create APA 7 tables using templates, live preview, and export-ready manuscript formatting.</p>
-                            </div>
-                        </div>
-
-                        <div onclick="loadBibliographyWorkspace()" class="bg-white border border-slate-200/80 hover:border-emerald-500 hover:shadow-xl hover:shadow-emerald-500/5 rounded-2xl p-6 cursor-pointer transition-all duration-300 flex items-start gap-5 group relative overflow-hidden">
-                            <div class="absolute inset-y-0 left-0 w-1.5 bg-emerald-500 transform scale-y-0 group-hover:scale-y-100 transition-transform duration-300"></div>
-                            <div class="bg-emerald-50 text-emerald-600 p-4 rounded-xl group-hover:bg-emerald-600 group-hover:text-white transition-all duration-300 shrink-0">
-                                <i data-lucide="book-copy" class="w-5 h-5"></i>
-                            </div>
-                            <div class="space-y-1">
-                                <h4 class="font-bold text-slate-800 group-hover:text-emerald-600 transition-colors">Bibliography Formatter</h4>
-                                <p class="text-xs text-slate-400 leading-relaxed">Paste references to auto-arrange, apply hanging indents, and run APA metadata checks and safe auto-fixes.</p>
-                            </div>
-                        </div>
-
-                        <div onclick="loadCitationWorkspace()" class="bg-white border border-slate-200/80 hover:border-indigo-500 hover:shadow-xl hover:shadow-indigo-500/5 rounded-2xl p-6 cursor-pointer transition-all duration-300 flex items-start gap-5 group relative overflow-hidden">
-                            <div class="absolute inset-y-0 left-0 w-1.5 bg-indigo-500 transform scale-y-0 group-hover:scale-y-100 transition-transform duration-300"></div>
-                            <div class="bg-indigo-50 text-indigo-600 p-4 rounded-xl group-hover:bg-indigo-600 group-hover:text-white transition-all duration-300 shrink-0">
-                                <i data-lucide="quote" class="w-5 h-5"></i>
-                            </div>
-                            <div class="space-y-1">
-                                <h4 class="font-bold text-slate-800 group-hover:text-indigo-600 transition-colors">Citation Generator</h4>
-                                <p class="text-xs text-slate-400 leading-relaxed">Upload a PDF paper or paste a web link / DOI to extract metadata and generate APA 7 citations instantly.</p>
-                            </div>
-                        </div>
+                <!-- Resume saved work -->
+                <div id="home-continue" class="hidden max-w-3xl w-full mx-auto bg-emerald-50 border border-emerald-200 rounded-2xl px-5 py-4 flex flex-wrap items-center justify-between gap-3">
+                    <div class="flex items-center gap-3 text-sm text-emerald-900">
+                        <i data-lucide="history" class="w-5 h-5 text-emerald-600"></i>
+                        <span><strong>Welcome back.</strong> <span id="home-continue-text">Your bibliography draft was saved.</span></span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button type="button" onclick="loadBibliographyWorkspace()" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold px-4 py-2 rounded-lg transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-600">Resume bibliography</button>
+                        <button type="button" onclick="discardBibliographyDraft()" class="text-xs font-semibold text-emerald-800 hover:underline px-2 py-2">Discard</button>
                     </div>
                 </div>
 
-                <!-- Category Blocks -->
-                <div id="table-templates-section" class="space-y-8">
-                    
-                    <!-- Blank Block -->
-                    <div>
+                <!-- Tools -->
+                <div id="home-tools" class="space-y-10">
+                    <div class="space-y-4">
+                        <h3 class="text-sm font-extrabold uppercase tracking-widest text-slate-500 text-center">What do you need?</h3>
                         <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                            <div onclick="loadTemplate('blank')" class="bg-white border border-slate-200/80 hover:border-blue-500 hover:shadow-xl hover:shadow-blue-500/5 rounded-2xl p-6 cursor-pointer transition-all duration-300 flex flex-col items-center justify-center text-center gap-4 h-52 group relative overflow-hidden">
-                                <div class="absolute inset-x-0 bottom-0 h-1.5 bg-gradient-to-r from-blue-500 to-indigo-500 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-300"></div>
-                                <div class="bg-slate-50 text-slate-500 p-3.5 rounded-2xl group-hover:bg-blue-50 group-hover:text-blue-600 transition-all duration-300">
-                                    <i data-lucide="plus" class="w-6 h-6"></i>
+                            <button type="button" onclick="loadCitationWorkspace()" class="text-left bg-white border border-slate-200/80 hover:border-indigo-500 hover:shadow-xl hover:shadow-indigo-500/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-500 rounded-2xl p-6 transition-all duration-300 flex flex-col gap-4 group">
+                                <div class="flex items-center justify-between">
+                                    <div class="bg-indigo-50 text-indigo-600 p-3.5 rounded-xl group-hover:bg-indigo-600 group-hover:text-white transition-all duration-300"><i data-lucide="quote" class="w-5 h-5"></i></div>
+                                    <span class="text-[10px] font-bold uppercase tracking-wider text-indigo-600 bg-indigo-50 px-2 py-1 rounded-full">Step 1</span>
                                 </div>
-                                <div>
-                                    <h3 class="font-bold text-slate-800 group-hover:text-blue-600 transition-colors">Start Empty Canvas</h3>
-                                    <p class="text-xs text-slate-400 mt-1 max-w-[200px]">Begin formatting a completely empty custom table grid.</p>
+                                <div class="space-y-1">
+                                    <h4 class="font-bold text-slate-800 group-hover:text-indigo-600 transition-colors">Citation Generator</h4>
+                                    <p class="text-xs text-slate-500 leading-relaxed">Paste a DOI or web link, or upload a PDF, to get an APA 7 reference and in-text citations.</p>
                                 </div>
-                            </div>
+                            </button>
 
-                            <!-- Paste Existing Table -->
-                            <div onclick="openPasteTableModal()" class="bg-white border border-slate-200/80 hover:border-amber-500 hover:shadow-xl hover:shadow-amber-500/5 rounded-2xl p-6 cursor-pointer transition-all duration-300 flex flex-col items-center justify-center text-center gap-4 h-52 group relative overflow-hidden">
-                                <div class="absolute inset-x-0 bottom-0 h-1.5 bg-gradient-to-r from-amber-400 to-orange-500 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-300"></div>
-                                <div class="bg-amber-50 text-amber-500 p-3.5 rounded-2xl group-hover:bg-amber-500 group-hover:text-white transition-all duration-300">
-                                    <i data-lucide="clipboard-paste" class="w-6 h-6"></i>
+                            <button type="button" onclick="loadBibliographyWorkspace()" class="text-left bg-white border border-slate-200/80 hover:border-emerald-500 hover:shadow-xl hover:shadow-emerald-500/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-500 rounded-2xl p-6 transition-all duration-300 flex flex-col gap-4 group">
+                                <div class="flex items-center justify-between">
+                                    <div class="bg-emerald-50 text-emerald-600 p-3.5 rounded-xl group-hover:bg-emerald-600 group-hover:text-white transition-all duration-300"><i data-lucide="book-copy" class="w-5 h-5"></i></div>
+                                    <span class="text-[10px] font-bold uppercase tracking-wider text-emerald-600 bg-emerald-50 px-2 py-1 rounded-full">Step 2</span>
                                 </div>
-                                <div>
-                                    <h3 class="font-bold text-slate-800 group-hover:text-amber-600 transition-colors">Paste Existing Table</h3>
-                                    <p class="text-xs text-slate-400 mt-1 max-w-[200px]">Import a table from Word, Google Docs, Excel, or Google Sheets.</p>
+                                <div class="space-y-1">
+                                    <h4 class="font-bold text-slate-800 group-hover:text-emerald-600 transition-colors">Bibliography Formatter</h4>
+                                    <p class="text-xs text-slate-500 leading-relaxed">Paste references to sort them, apply hanging indents and italics, and run APA checks.</p>
                                 </div>
-                            </div>
+                            </button>
 
-                            <!-- Highlights Features -->
-                            <div class="col-span-1 bg-gradient-to-r from-slate-900 to-indigo-950 rounded-2xl p-8 text-white flex flex-col justify-between shadow-lg relative overflow-hidden">
-                                <div class="absolute -right-16 -bottom-16 opacity-10 text-white">
-                                    <i data-lucide="graduation-cap" class="w-64 h-64"></i>
+                            <button type="button" onclick="openTableTemplates()" class="text-left bg-white border border-slate-200/80 hover:border-blue-500 hover:shadow-xl hover:shadow-blue-500/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-500 rounded-2xl p-6 transition-all duration-300 flex flex-col gap-4 group">
+                                <div class="flex items-center justify-between">
+                                    <div class="bg-blue-50 text-blue-600 p-3.5 rounded-xl group-hover:bg-blue-600 group-hover:text-white transition-all duration-300"><i data-lucide="table-properties" class="w-5 h-5"></i></div>
+                                    <span class="text-[10px] font-bold uppercase tracking-wider text-blue-600 bg-blue-50 px-2 py-1 rounded-full">Tables</span>
                                 </div>
-                                <div class="space-y-2 z-10">
-                                    <span class="text-xs font-bold uppercase tracking-widest text-indigo-400 bg-indigo-500/10 px-3 py-1 rounded-full border border-indigo-500/20">APA Cheat-sheet Built In</span>
-                                    <h3 class="text-xl font-bold mt-2">Zero-Effort Borders & Alignments</h3>
-                                    <p class="text-slate-300 text-sm max-w-lg leading-relaxed">
-                                        The application automatically formats column alignment, removes vertical lines, establishes APA borders, italicizes titles, and bolds your table identifiers flawlessly.
-                                    </p>
+                                <div class="space-y-1">
+                                    <h4 class="font-bold text-slate-800 group-hover:text-blue-600 transition-colors">Table Formatter</h4>
+                                    <p class="text-xs text-slate-500 leading-relaxed">Build APA 7 tables from templates or paste one from Word or Excel, with live preview.</p>
                                 </div>
-                                <div class="flex gap-6 mt-6 text-xs text-slate-400 border-t border-slate-800/80 pt-4 z-10">
-                                    <span class="flex items-center gap-1.5"><i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-500"></i> No Vertical Lines</span>
-                                    <span class="flex items-center gap-1.5"><i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-500"></i> Left-Aligned Stub Columns</span>
-                                    <span class="flex items-center gap-1.5"><i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-500"></i> Auto Title-Casing</span>
-                                </div>
-                            </div>
+                            </button>
                         </div>
                     </div>
 
-                    <!-- Quantitative Section -->
+                    <!-- How it works -->
+                    <div class="bg-white border border-slate-200/80 rounded-2xl p-6">
+                        <h3 class="text-sm font-extrabold uppercase tracking-widest text-slate-500 mb-4">How it works</h3>
+                        <ol class="grid grid-cols-1 md:grid-cols-3 gap-5 text-sm text-slate-600">
+                            <li class="flex gap-3"><span class="shrink-0 w-6 h-6 rounded-full bg-indigo-100 text-indigo-700 text-xs font-bold flex items-center justify-center">1</span><span><strong class="text-slate-800">Generate.</strong> Create each reference from a link, DOI or PDF and review the flagged fields.</span></li>
+                            <li class="flex gap-3"><span class="shrink-0 w-6 h-6 rounded-full bg-emerald-100 text-emerald-700 text-xs font-bold flex items-center justify-center">2</span><span><strong class="text-slate-800">Collect.</strong> Add citations to the bibliography. It sorts them and fixes common APA slips.</span></li>
+                            <li class="flex gap-3"><span class="shrink-0 w-6 h-6 rounded-full bg-blue-100 text-blue-700 text-xs font-bold flex items-center justify-center">3</span><span><strong class="text-slate-800">Export.</strong> Copy with formatting or download a Word file. Tables work the same way.</span></li>
+                        </ol>
+                    </div>
+                </div>
+
+                <!-- Table templates (shown after choosing Table Formatter) -->
+                <div id="table-templates-section" class="hidden space-y-8">
+                    <div class="flex items-center justify-between gap-4 border-b border-slate-200/80 pb-3">
+                        <div>
+                            <h3 class="text-xl font-extrabold text-slate-900">Table Formatter</h3>
+                            <p class="text-sm text-slate-500">Choose a starting point.</p>
+                        </div>
+                        <button type="button" onclick="showHome()" class="text-sm font-semibold text-slate-600 hover:text-slate-900 border border-slate-200 bg-white hover:bg-slate-50 px-4 py-2 rounded-xl flex items-center gap-2 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-500">
+                            <i data-lucide="arrow-left" class="w-4 h-4"></i> All tools
+                        </button>
+                    </div>
+
+                    <div class="space-y-4">
+                        <h4 class="text-base font-bold text-slate-800 tracking-tight">Start from scratch</h4>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <button type="button" onclick="loadTemplate('blank')" class="text-left bg-white border border-slate-200/80 hover:border-blue-500 hover:shadow-xl hover:shadow-blue-500/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-500 rounded-2xl p-6 transition-all duration-300 flex items-center gap-4 group">
+                                <div class="bg-slate-50 text-slate-500 p-3.5 rounded-2xl group-hover:bg-blue-50 group-hover:text-blue-600 transition-all duration-300"><i data-lucide="plus" class="w-6 h-6"></i></div>
+                                <div>
+                                    <h5 class="font-bold text-slate-800 group-hover:text-blue-600 transition-colors">Start Empty Canvas</h5>
+                                    <p class="text-xs text-slate-500 mt-1">Begin with a blank custom table grid.</p>
+                                </div>
+                            </button>
+                            <button type="button" onclick="openPasteTableModal()" class="text-left bg-white border border-slate-200/80 hover:border-amber-500 hover:shadow-xl hover:shadow-amber-500/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-500 rounded-2xl p-6 transition-all duration-300 flex items-center gap-4 group">
+                                <div class="bg-amber-50 text-amber-500 p-3.5 rounded-2xl group-hover:bg-amber-500 group-hover:text-white transition-all duration-300"><i data-lucide="clipboard-paste" class="w-6 h-6"></i></div>
+                                <div>
+                                    <h5 class="font-bold text-slate-800 group-hover:text-amber-600 transition-colors">Paste Existing Table</h5>
+                                    <p class="text-xs text-slate-500 mt-1">Import from Word, Google Docs, Excel, or Google Sheets.</p>
+                                </div>
+                            </button>
+                        </div>
+                    </div>
+
                     <div class="space-y-4">
                         <div class="flex items-center gap-2 border-b border-slate-200/80 pb-3">
                             <span class="p-1 bg-blue-50 text-blue-600 rounded-lg"><i data-lucide="binary" class="w-4 h-4"></i></span>
-                            <h3 class="text-base font-bold text-slate-800 tracking-tight">Quantitative Table Blueprints</h3>
+                            <h4 class="text-base font-bold text-slate-800 tracking-tight">Quantitative Table Blueprints</h4>
                         </div>
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            
-                            <div onclick="loadTemplate('descriptive')" class="bg-white border border-slate-200/80 hover:border-blue-500 hover:shadow-xl hover:shadow-blue-500/5 rounded-2xl p-6 cursor-pointer transition-all duration-300 flex items-start gap-5 group relative overflow-hidden">
-                                <div class="absolute inset-y-0 left-0 w-1.5 bg-blue-500 transform scale-y-0 group-hover:scale-y-100 transition-transform duration-300"></div>
-                                <div class="bg-blue-50 text-blue-600 p-4 rounded-xl group-hover:bg-blue-600 group-hover:text-white transition-all duration-300 shrink-0">
-                                    <i data-lucide="bar-chart-3" class="w-5 h-5"></i>
-                                </div>
+                            <button type="button" onclick="loadTemplate('descriptive')" class="text-left bg-white border border-slate-200/80 hover:border-blue-500 hover:shadow-xl hover:shadow-blue-500/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-500 rounded-2xl p-6 transition-all duration-300 flex gap-4 group">
+                                <div class="bg-blue-50 text-blue-600 p-4 rounded-xl group-hover:bg-blue-600 group-hover:text-white transition-all duration-300 shrink-0 self-start"><i data-lucide="bar-chart-3" class="w-5 h-5"></i></div>
                                 <div class="space-y-1">
-                                    <h4 class="font-bold text-slate-800 group-hover:text-blue-600 transition-colors">Descriptive Statistics</h4>
-                                    <p class="text-xs text-slate-400 leading-relaxed">Clean layout perfectly housing statistical measures such as Means (M), Standard Deviations (SD), and Sample Sizes (n).</p>
+                                    <h5 class="font-bold text-slate-800 group-hover:text-blue-600 transition-colors">Descriptive Statistics</h5>
+                                    <p class="text-xs text-slate-500 leading-relaxed">Means (M), standard deviations (SD), and sample sizes (n).</p>
                                 </div>
-                            </div>
-
-                            <div onclick="loadTemplate('correlation')" class="bg-white border border-slate-200/80 hover:border-blue-500 hover:shadow-xl hover:shadow-blue-500/5 rounded-2xl p-6 cursor-pointer transition-all duration-300 flex items-start gap-5 group relative overflow-hidden">
-                                <div class="absolute inset-y-0 left-0 w-1.5 bg-blue-500 transform scale-y-0 group-hover:scale-y-100 transition-transform duration-300"></div>
-                                <div class="bg-blue-50 text-blue-600 p-4 rounded-xl group-hover:bg-blue-600 group-hover:text-white transition-all duration-300 shrink-0">
-                                    <i data-lucide="trending-up" class="w-5 h-5"></i>
-                                </div>
+                            </button>
+                            <button type="button" onclick="loadTemplate('correlation')" class="text-left bg-white border border-slate-200/80 hover:border-blue-500 hover:shadow-xl hover:shadow-blue-500/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-500 rounded-2xl p-6 transition-all duration-300 flex gap-4 group">
+                                <div class="bg-blue-50 text-blue-600 p-4 rounded-xl group-hover:bg-blue-600 group-hover:text-white transition-all duration-300 shrink-0 self-start"><i data-lucide="trending-up" class="w-5 h-5"></i></div>
                                 <div class="space-y-1">
-                                    <h4 class="font-bold text-slate-800 group-hover:text-blue-600 transition-colors">Correlation Matrix</h4>
-                                    <p class="text-xs text-slate-400 leading-relaxed">Cross-variable correlation grids equipped with custom footnotes highlighting standard significance thresholds (p-values).</p>
+                                    <h5 class="font-bold text-slate-800 group-hover:text-blue-600 transition-colors">Correlation Matrix</h5>
+                                    <p class="text-xs text-slate-500 leading-relaxed">Correlation grid with significance footnotes (p-values).</p>
                                 </div>
-                            </div>
-
+                            </button>
                         </div>
                     </div>
 
-                    <!-- Qualitative Section -->
-                    <div class="space-y-4 pt-4">
+                    <div class="space-y-4">
                         <div class="flex items-center gap-2 border-b border-slate-200/80 pb-3">
                             <span class="p-1 bg-purple-50 text-purple-600 rounded-lg"><i data-lucide="align-left" class="w-4 h-4"></i></span>
-                            <h3 class="text-base font-bold text-slate-800 tracking-tight">Qualitative Table Blueprints</h3>
+                            <h4 class="text-base font-bold text-slate-800 tracking-tight">Qualitative Table Blueprints</h4>
                         </div>
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            
-                            <div onclick="loadTemplate('qual_themes')" class="bg-white border border-slate-200/80 hover:border-purple-500 hover:shadow-xl hover:shadow-purple-500/5 rounded-2xl p-6 cursor-pointer transition-all duration-300 flex items-start gap-5 group relative overflow-hidden">
-                                <div class="absolute inset-y-0 left-0 w-1.5 bg-purple-500 transform scale-y-0 group-hover:scale-y-100 transition-transform duration-300"></div>
-                                <div class="bg-purple-50 text-purple-600 p-4 rounded-xl group-hover:bg-purple-600 group-hover:text-white transition-all duration-300 shrink-0">
-                                    <i data-lucide="message-square-quote" class="w-5 h-5"></i>
-                                </div>
+                            <button type="button" onclick="loadTemplate('qual_themes')" class="text-left bg-white border border-slate-200/80 hover:border-purple-500 hover:shadow-xl hover:shadow-purple-500/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-purple-500 rounded-2xl p-6 transition-all duration-300 flex gap-4 group">
+                                <div class="bg-purple-50 text-purple-600 p-4 rounded-xl group-hover:bg-purple-600 group-hover:text-white transition-all duration-300 shrink-0 self-start"><i data-lucide="message-square-quote" class="w-5 h-5"></i></div>
                                 <div class="space-y-1">
-                                    <h4 class="font-bold text-slate-800 group-hover:text-purple-600 transition-colors">Themes & Quotes Matrix</h4>
-                                    <p class="text-xs text-slate-400 leading-relaxed">Designed for grouping core conceptual themes, secondary subthemes, and detailed illustrative participant responses.</p>
+                                    <h5 class="font-bold text-slate-800 group-hover:text-purple-600 transition-colors">Themes &amp; Quotes Matrix</h5>
+                                    <p class="text-xs text-slate-500 leading-relaxed">Themes, subthemes, and illustrative participant quotes.</p>
                                 </div>
-                            </div>
-
-                            <div onclick="loadTemplate('qual_demographics')" class="bg-white border border-slate-200/80 hover:border-purple-500 hover:shadow-xl hover:shadow-purple-500/5 rounded-2xl p-6 cursor-pointer transition-all duration-300 flex items-start gap-5 group relative overflow-hidden">
-                                <div class="absolute inset-y-0 left-0 w-1.5 bg-purple-500 transform scale-y-0 group-hover:scale-y-100 transition-transform duration-300"></div>
-                                <div class="bg-purple-50 text-purple-600 p-4 rounded-xl group-hover:bg-purple-600 group-hover:text-white transition-all duration-300 shrink-0">
-                                    <i data-lucide="users" class="w-5 h-5"></i>
-                                </div>
+                            </button>
+                            <button type="button" onclick="loadTemplate('qual_demographics')" class="text-left bg-white border border-slate-200/80 hover:border-purple-500 hover:shadow-xl hover:shadow-purple-500/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-purple-500 rounded-2xl p-6 transition-all duration-300 flex gap-4 group">
+                                <div class="bg-purple-50 text-purple-600 p-4 rounded-xl group-hover:bg-purple-600 group-hover:text-white transition-all duration-300 shrink-0 self-start"><i data-lucide="users" class="w-5 h-5"></i></div>
                                 <div class="space-y-1">
-                                    <h4 class="font-bold text-slate-800 group-hover:text-purple-600 transition-colors">Participant Characteristics</h4>
-                                    <p class="text-xs text-slate-400 leading-relaxed">A pristine structural layout perfect for displaying sample pseudonyms, demographics, cohorts, and metrics.</p>
+                                    <h5 class="font-bold text-slate-800 group-hover:text-purple-600 transition-colors">Participant Characteristics</h5>
+                                    <p class="text-xs text-slate-500 leading-relaxed">Pseudonyms, demographics, cohorts, and metrics.</p>
                                 </div>
-                            </div>
-
+                            </button>
                         </div>
                     </div>
-
                 </div>
             </div>
         </div>
@@ -1046,6 +1032,10 @@
             showHome();
             document.getElementById('paste-zone').addEventListener('paste', handlePasteInZone);
             initPdfDropzone();
+            const bibInputEl = document.getElementById('bibliography-input');
+            const savedDraft = readBibliographyDraft();
+            if (savedDraft && !bibInputEl.value.trim()) bibInputEl.value = savedDraft;
+            bibInputEl.addEventListener('input', () => { bibInputIsSample = false; scheduleBibliographyDraftSave(); });
             PROVENANCE_FIELDS.forEach(id => {
                 const el = document.getElementById(id);
                 if (el) el.addEventListener('input', () => el.classList.remove('prov-found', 'prov-guess', 'prov-missing'));
@@ -1086,6 +1076,9 @@
         }
 
         function showHome() {
+            document.getElementById('home-tools').classList.remove('hidden');
+            document.getElementById('table-templates-section').classList.add('hidden');
+            refreshContinueStrip();
             document.getElementById('home-view').style.display = 'flex';
             document.getElementById('editor-view').style.display = 'none';
             document.getElementById('btn-home').style.display = 'none';
@@ -1162,21 +1155,67 @@
             }
         }
 
-        function focusTableTemplates() {
-            const section = document.getElementById('table-templates-section');
-            if (section) {
-                section.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            }
+        function openTableTemplates() {
+            document.getElementById('home-tools').classList.add('hidden');
+            document.getElementById('home-continue').classList.add('hidden');
+            document.getElementById('table-templates-section').classList.remove('hidden');
+            document.getElementById('home-view').scrollTop = 0;
+            lucide.createIcons();
+        }
+
+        // ── Bibliography draft persistence ─────────────────────────────────────
+        const BIB_DRAFT_KEY = 'apastudio.bibliographyDraft.v1';
+        const BIB_SAMPLE_TEXT = [
+            'Smith, J. A., & Lee, R. T. (2021). Learning analytics in blended classrooms. Journal of Educational Computing, 35(2), 145-162. https://doi.org/10.1000/xyz123',
+            'Alvarez, P. M. (2019). Student motivation in remote environments. Academic Press.',
+            'Brown, K. (2023). Reflective pedagogy in higher education. Teaching Review, 18(4), 55-73.'
+        ].join('\n');
+        let bibDraftTimer = null;
+        let bibInputIsSample = false;
+
+        function saveBibliographyDraft() {
+            try {
+                const value = document.getElementById('bibliography-input').value.trim();
+                if (!value || bibInputIsSample) {
+                    localStorage.removeItem(BIB_DRAFT_KEY);
+                } else {
+                    localStorage.setItem(BIB_DRAFT_KEY, value);
+                }
+            } catch (e) { /* storage unavailable (private mode, blocked): the app still works */ }
+        }
+
+        function scheduleBibliographyDraftSave() {
+            clearTimeout(bibDraftTimer);
+            bibDraftTimer = setTimeout(saveBibliographyDraft, 400);
+        }
+
+        function readBibliographyDraft() {
+            try { return localStorage.getItem(BIB_DRAFT_KEY) || ''; } catch (e) { return ''; }
+        }
+
+        function refreshContinueStrip() {
+            const strip = document.getElementById('home-continue');
+            if (!strip) return;
+            const draft = readBibliographyDraft();
+            if (!draft) { strip.classList.add('hidden'); return; }
+            const count = parseBibliographyEntries(draft).length;
+            document.getElementById('home-continue-text').innerText = `Your bibliography draft (${count} reference${count === 1 ? '' : 's'}) was saved in this browser.`;
+            strip.classList.remove('hidden');
+            lucide.createIcons();
+        }
+
+        function discardBibliographyDraft() {
+            try { localStorage.removeItem(BIB_DRAFT_KEY); } catch (e) { /* ignore */ }
+            document.getElementById('bibliography-input').value = '';
+            refreshContinueStrip();
+            showToast('Saved bibliography draft discarded.');
         }
 
         function loadBibliographyWorkspace() {
             const bibliographyInput = document.getElementById('bibliography-input');
             if (!bibliographyInput.value.trim()) {
-                bibliographyInput.value = [
-                    'Smith, J. A., & Lee, R. T. (2021). Learning analytics in blended classrooms. Journal of Educational Computing, 35(2), 145-162. https://doi.org/10.1000/xyz123',
-                    'Alvarez, P. M. (2019). Student motivation in remote environments. Academic Press.',
-                    'Brown, K. (2023). Reflective pedagogy in higher education. Teaching Review, 18(4), 55-73.'
-                ].join('\n');
+                bibliographyInput.value = BIB_SAMPLE_TEXT;
+                bibInputIsSample = true;
             }
 
             setMode('bibliography');
@@ -1917,6 +1956,7 @@
             }, 0);
 
             document.getElementById('bibliography-input').value = sortedEntries.join('\n');
+            saveBibliographyDraft();
 
             showToast(`Formatted ${sortedEntries.length} reference${sortedEntries.length === 1 ? '' : 's'} in APA 7 style. Auto-fixed ${autoFixedCount}.`);
         }
@@ -3415,6 +3455,8 @@
             const currentText = bibInput.value.trim();
             const entry = currentCitationMarked || currentCitationPlain;
             bibInput.value = currentText ? `${currentText}\n\n${entry}` : entry;
+            bibInputIsSample = false;
+            saveBibliographyDraft();
 
             showToast('Citation added to Bibliography Formatter!');
         }

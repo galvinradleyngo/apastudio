@@ -29,3 +29,8 @@ A modern, browser-based academic formatting workspace for researchers, educators
 - Fields are marked green (found in source), amber (guessed from the link) or red (missing) so you know what to verify. Editing a field clears its marker.
 - Optional: deploy `worker/metadata-proxy.js` (see `worker/README.md`) for more reliable page fetching.
 - Tests: `node tests/url-metadata.test.js` (requires Playwright).
+
+## Homepage and saved drafts
+- The homepage lists the three tools in workflow order (Citation Generator, Bibliography Formatter, Table Formatter). Table templates open from the Table Formatter card.
+- Your bibliography text is saved automatically in this browser (localStorage); the homepage offers to resume or discard it. The built-in sample bibliography is never saved.
+- Tests: `node tests/home-and-draft.test.js`.
