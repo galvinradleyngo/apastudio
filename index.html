@@ -4,9 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>APA Formatting Studio | 7th Edition</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.tailwindcss.com/3.4.1"></script>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Playfair+Display:ital,wght@0,600;1,600&display=swap" rel="stylesheet">
-    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://unpkg.com/lucide@0.460.0"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <style>
         body { 
@@ -139,6 +139,7 @@
         .issue-list li {
             margin: 0.125rem 0;
         }
+        :focus-visible { outline: 2px solid #4f46e5; outline-offset: 2px; }
         .prov-found { box-shadow: inset 3px 0 0 #10b981 !important; }
         .prov-guess { box-shadow: inset 3px 0 0 #f59e0b !important; }
         .prov-missing { box-shadow: inset 3px 0 0 #f43f5e !important; }
@@ -147,7 +148,7 @@
 <body class="h-screen flex flex-col overflow-hidden text-slate-800">
 
     <!-- Toast Notification system -->
-    <div id="toast" class="fixed top-6 right-6 z-50 transform translate-y-12 opacity-0 pointer-events-none transition-all duration-300 flex items-center gap-3 bg-slate-900 text-white px-5 py-3.5 rounded-xl shadow-xl border border-slate-800 text-sm">
+    <div id="toast" role="status" aria-live="polite" class="fixed top-6 right-6 z-50 transform translate-y-12 opacity-0 pointer-events-none transition-all duration-300 flex items-center gap-3 bg-slate-900 text-white px-5 py-3.5 rounded-xl shadow-xl border border-slate-800 text-sm">
         <div class="bg-emerald-500/20 text-emerald-400 p-1 rounded-lg">
             <i data-lucide="check" class="w-4 h-4"></i>
         </div>
@@ -477,6 +478,13 @@
                                 </button>
                                 <p class="text-xs text-slate-500">Automatically removes list bullets/numbers, arranges entries alphabetically, and applies hanging indent.</p>
                             </div>
+                            <div class="flex items-center gap-3 border-t border-slate-200/60 pt-3">
+                                <label for="reference-file-input" class="cursor-pointer bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs font-semibold py-2 px-3 rounded-xl flex items-center gap-2">
+                                    <i data-lucide="file-up" class="w-4 h-4"></i> Import BibTeX / RIS file
+                                </label>
+                                <input type="file" id="reference-file-input" accept=".bib,.ris,.txt,.enw" class="sr-only" onchange="handleReferenceFileImport(event)">
+                                <p class="text-xs text-slate-500">From Zotero, Mendeley, EndNote or Google Scholar exports. Entries are added to the list above.</p>
+                            </div>
                         </div>
 
                         <div class="bg-slate-50 border border-slate-200/80 rounded-2xl p-5 space-y-3">
@@ -487,6 +495,18 @@
                             <p class="text-xs text-slate-500 leading-relaxed">
                                 This formatter applies reference-list structure rules: entries are sorted by first author surname, rendered as double-spaced lines, and displayed with hanging indents suitable for manuscript references.
                             </p>
+                        </div>
+
+                        <div class="bg-slate-50 border border-slate-200/80 rounded-2xl p-5 space-y-3">
+                            <h3 class="font-bold text-slate-800 text-sm flex items-center gap-2">
+                                <i data-lucide="list-checks" class="w-4 h-4 text-emerald-600"></i>
+                                2. Check In-Text Citations (optional)
+                            </h3>
+                            <p class="text-xs text-slate-500 leading-relaxed">Paste your manuscript text (without the reference list) to find citations missing from the list and references that are never cited.</p>
+                            <label for="manuscript-input" class="sr-only">Manuscript text</label>
+                            <textarea id="manuscript-input" rows="6" placeholder="Paste your paper text here…" class="w-full border border-slate-200 rounded-xl p-3 text-sm focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none bg-white"></textarea>
+                            <button type="button" onclick="checkCitationsAgainstReferences()" class="bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs font-semibold py-2 px-3 rounded-xl">Check citations</button>
+                            <div id="citation-check-results" class="text-xs text-slate-700 leading-relaxed" aria-live="polite"></div>
                         </div>
 
                         <div class="bg-amber-50 border border-amber-200 rounded-2xl p-5 space-y-3">
@@ -580,7 +600,7 @@
                             </div>
 
                             <!-- Resolution Status Banner -->
-                            <div id="citation-status-card" class="hidden rounded-xl p-3.5 text-xs flex items-start gap-2.5 transition-all">
+                            <div id="citation-status-card" role="status" aria-live="polite" class="hidden rounded-xl p-3.5 text-xs flex items-start gap-2.5 transition-all">
                                 <div id="citation-status-icon" class="shrink-0 mt-0.5"></div>
                                 <div class="flex-1">
                                     <p id="citation-status-title" class="font-bold"></p>
@@ -617,6 +637,12 @@
                                             <option value="webpage">Webpage / Website Page</option>
                                             <option value="article">News / Magazine / Blog Article</option>
                                             <option value="video">Online Video (YouTube, etc.)</option>
+                                            <option value="chapter">Book Chapter (Edited Book)</option>
+                                            <option value="thesis">Thesis / Dissertation</option>
+                                            <option value="dataset">Dataset</option>
+                                            <option value="software">Software / App</option>
+                                            <option value="podcast">Podcast Episode</option>
+                                            <option value="social">Social Media Post</option>
                                             <option value="report">Report / Working Paper</option>
                                             <option value="religious">Religious / Foundational Document</option>
                                         </select>
@@ -655,18 +681,48 @@
                                         <input type="text" id="cite-monthday" placeholder="e.g. October 14" oninput="updateCitationPreview()" class="w-full border border-slate-200 rounded-xl p-3 text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all bg-white">
                                     </div>
                                     <div id="cite-journal-meta-wrapper" class="grid grid-cols-3 gap-2">
-                                        <div>
+                                        <div id="cite-wrap-volume">
                                             <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Volume</label>
                                             <input type="text" id="cite-volume" placeholder="585" oninput="updateCitationPreview()" class="w-full border border-slate-200 rounded-xl p-3 text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all bg-white">
                                         </div>
-                                        <div>
+                                        <div id="cite-wrap-issue">
                                             <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Issue</label>
                                             <input type="text" id="cite-issue" placeholder="7825" oninput="updateCitationPreview()" class="w-full border border-slate-200 rounded-xl p-3 text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all bg-white">
                                         </div>
-                                        <div>
+                                        <div id="cite-wrap-pages">
                                             <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Pages</label>
                                             <input type="text" id="cite-pages" placeholder="357-362" oninput="updateCitationPreview()" class="w-full border border-slate-200 rounded-xl p-3 text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all bg-white">
                                         </div>
+                                    </div>
+                                </div>
+
+                                <div id="cite-extra-fields" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div id="cite-wrap-container" class="hidden md:col-span-2">
+                                        <label id="cite-container-label" for="cite-container" class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Container Title</label>
+                                        <input type="text" id="cite-container" oninput="updateCitationPreview()" class="w-full border border-slate-200 rounded-xl p-3 text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all bg-white">
+                                    </div>
+                                    <div id="cite-wrap-editors" class="hidden md:col-span-2">
+                                        <label for="cite-editors" class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Editors</label>
+                                        <input type="text" id="cite-editors" placeholder="Smith, J. A., & Davis, M." oninput="updateCitationPreview()" class="w-full border border-slate-200 rounded-xl p-3 text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all bg-white">
+                                    </div>
+                                    <div id="cite-wrap-edition" class="hidden">
+                                        <label id="cite-edition-label" for="cite-edition" class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Edition</label>
+                                        <input type="text" id="cite-edition" placeholder="2nd" oninput="updateCitationPreview()" class="w-full border border-slate-200 rounded-xl p-3 text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all bg-white">
+                                    </div>
+                                    <div id="cite-wrap-translator" class="hidden">
+                                        <label for="cite-translator" class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Translator</label>
+                                        <input type="text" id="cite-translator" placeholder="J. A. Smith" oninput="updateCitationPreview()" class="w-full border border-slate-200 rounded-xl p-3 text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all bg-white">
+                                    </div>
+                                    <div id="cite-wrap-descriptor" class="hidden">
+                                        <label for="cite-descriptor" class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Format Description (optional)</label>
+                                        <input type="text" id="cite-descriptor" oninput="updateCitationPreview()" class="w-full border border-slate-200 rounded-xl p-3 text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all bg-white">
+                                    </div>
+                                    <div id="cite-wrap-retrieved" class="hidden md:col-span-2 flex flex-wrap items-center gap-3">
+                                        <label class="flex items-center gap-2 text-xs font-semibold text-slate-600">
+                                            <input type="checkbox" id="cite-retrieved-on" onchange="updateCitationPreview()" class="rounded border-slate-300">
+                                            Add a retrieval date (for pages that change over time)
+                                        </label>
+                                        <input type="text" id="cite-retrieved-date" aria-label="Retrieval date" oninput="updateCitationPreview()" class="w-48 border border-slate-200 rounded-xl p-2 text-sm bg-white">
                                     </div>
                                 </div>
 
@@ -1036,9 +1092,23 @@
             const savedDraft = readBibliographyDraft();
             if (savedDraft && !bibInputEl.value.trim()) bibInputEl.value = savedDraft;
             bibInputEl.addEventListener('input', () => { bibInputIsSample = false; scheduleBibliographyDraftSave(); });
+            associateFormLabels();
             PROVENANCE_FIELDS.forEach(id => {
                 const el = document.getElementById(id);
                 if (el) el.addEventListener('input', () => el.classList.remove('prov-found', 'prov-guess', 'prov-missing'));
+            });
+        }
+
+        // Gives every visible label a matching `for` so screen readers announce field names.
+        function associateFormLabels() {
+            let counter = 0;
+            document.querySelectorAll('label:not([for])').forEach(label => {
+                if (label.querySelector('input, textarea, select')) return;
+                const scope = label.parentElement && label.parentElement.parentElement && label.parentElement.querySelector('input, textarea, select') ? label.parentElement : label.parentElement && label.parentElement.parentElement;
+                const control = scope && scope.querySelector('input:not([type="checkbox"]), textarea, select');
+                if (!control) return;
+                if (!control.id) control.id = `field-auto-${++counter}`;
+                label.setAttribute('for', control.id);
             });
         }
 
@@ -1259,6 +1329,8 @@
                     const div = document.createElement('div');
                     div.className = "editor-cell px-3.5 py-3 w-full h-full outline-none min-h-[44px] text-left";
                     div.contentEditable = true;
+                    div.setAttribute('role', 'textbox');
+                    div.setAttribute('aria-label', rowIndex === 0 ? `Column ${colIndex + 1} header` : `Row ${rowIndex}, column ${colIndex + 1}`);
                     div.dataset.placeholder = rowIndex === 0 ? "Header..." : "Data...";
                     div.innerText = cellText;
                     
@@ -1779,11 +1851,16 @@
             notes.push(...dateInsertion.notes);
 
             fixed = normalizeYearAndInitialsFormatting(fixed);
+            const withDashes = normalizePageRanges(fixed);
+            if (withDashes !== fixed) notes.push('Converted a page-range hyphen to an en dash.');
+            fixed = withDashes;
             fixed = normalizeDoiAndUrlFormatting(fixed);
             fixed = fixed.replace(/\s+/g, ' ').trim();
 
             return { fixed, notes };
         }
+
+        const SENTENCE_CASE_ISSUE = 'Title may not be in sentence case (APA 7 for works in references).';
 
         function isLikelySentenceCase(titleText) {
             const trimmed = (titleText || '').trim();
@@ -1846,7 +1923,7 @@
             if (titleSourceMatch) {
                 const candidateTitle = titleSourceMatch[1].trim();
                 if (!isLikelySentenceCase(candidateTitle)) {
-                    issues.push('Title may not be in sentence case (APA 7 for works in references).');
+                    issues.push(SENTENCE_CASE_ISSUE);
                 }
 
                 const sourceSegment = titleSourceMatch[2].trim();
@@ -1893,6 +1970,15 @@
                 return;
             }
 
+            if (warningEntries.some(item => item.issues.includes(SENTENCE_CASE_ISSUE))) {
+                const fixAll = document.createElement('button');
+                fixAll.type = 'button';
+                fixAll.className = 'mb-2 bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold px-3 py-1.5 rounded-lg';
+                fixAll.innerText = 'Apply sentence case to all flagged titles';
+                fixAll.addEventListener('click', fixAllSentenceCase);
+                target.appendChild(fixAll);
+            }
+
             const summary = document.createElement('p');
             summary.className = 'font-semibold';
             summary.innerText = `${warningEntries.length} of ${entries.length} reference${entries.length === 1 ? '' : 's'} flagged for review.`;
@@ -1911,7 +1997,15 @@
                 list.className = 'issue-list';
                 item.issues.forEach(issue => {
                     const li = document.createElement('li');
-                    li.innerText = issue;
+                    li.innerText = issue + ' ';
+                    if (issue === SENTENCE_CASE_ISSUE) {
+                        const fix = document.createElement('button');
+                        fix.type = 'button';
+                        fix.className = 'ml-1 text-[11px] font-semibold text-emerald-700 underline hover:text-emerald-900';
+                        fix.innerText = 'Fix it';
+                        fix.addEventListener('click', () => fixSentenceCaseFor(item.entry));
+                        li.appendChild(fix);
+                    }
                     list.appendChild(li);
                 });
                 block.appendChild(list);
@@ -1936,13 +2030,310 @@
             });
         }
 
+        // ── Page ranges, year suffixes and one-click fixes ─────────────────────
+        function normalizePageRanges(reference) {
+            return reference.split(/(https?:\/\/\S+)/).map((part, i) => {
+                if (i % 2 === 1) return part;
+                return part.replace(/((?:,\s*|\bpp?\.\s*))(\d+)\s*[-‐‑‒]\s*(\d+)(?=[).,;\s]|$)/g, '$1$2–$3');
+            }).join('');
+        }
+
+        function referenceAuthorBlock(entry) {
+            const text = stripItalicMarkers(entry);
+            const m = text.match(/^(.*?)\s*\((?:\d{4}[a-z]?|n\.d\.(?:-[a-z])?)(?:,[^)]*)?\)/i);
+            return m ? m[1].trim() : '';
+        }
+
+        function referenceTitleSortKey(entry) {
+            const m = stripItalicMarkers(entry).match(/\)\.\s*(.*)$/);
+            return (m ? m[1] : entry).replace(/^(?:a|an|the)\s+/i, '').toLowerCase();
+        }
+
+        // Entries by the same author(s) in the same year get a, b, c suffixes ordered by title (APA 7).
+        function assignYearSuffixes(entries) {
+            const result = [...entries];
+            const notes = [];
+            const groups = new Map();
+            result.forEach((entry, idx) => {
+                const m = entry.match(/\((\d{4}|n\.d\.)(?:-?[a-z])?((?:,[^)]*)?)\)/i);
+                const author = referenceAuthorBlock(entry);
+                if (!m || !author) return;
+                const key = `${author.toLowerCase()}|${m[1].toLowerCase()}`;
+                if (!groups.has(key)) groups.set(key, []);
+                groups.get(key).push(idx);
+            });
+            groups.forEach(indexes => {
+                if (indexes.length < 2) return;
+                const ordered = [...indexes].sort((a, b) => referenceTitleSortKey(result[a]).localeCompare(referenceTitleSortKey(result[b])));
+                const updated = ordered.map((idx, n) => {
+                    const letter = String.fromCharCode(97 + n);
+                    return result[idx].replace(/\((\d{4}|n\.d\.)(?:-?[a-z])?((?:,[^)]*)?)\)/i, (m, year, rest) => `(${/^n\.d\.$/i.test(year) ? `${year}-${letter}` : `${year}${letter}`}${rest})`);
+                });
+                const slots = [...indexes].sort((a, b) => a - b);
+                const changed = updated.some((u, n) => u !== result[ordered[n]]);
+                updated.forEach((u, n) => { result[slots[n]] = u; });
+                if (changed) notes.push(`Added a/b year suffixes for ${referenceAuthorBlock(updated[0]).slice(0, 40)} (${(updated[0].match(/\((\d{4}|n\.d\.)/i) || [])[1]}).`);
+            });
+            return { entries: result, notes };
+        }
+
+        function sentenceCaseEntry(entry) {
+            const m = entry.match(/(\((?:\d{4}|n\.d\.)[a-z]?(?:-[a-z])?(?:,[^)]*)?\)\.\s+)(.+?)(\.\s+|\.$)/);
+            if (!m) return entry;
+            const raw = m[2];
+            const fixed = toSentenceCase(raw.replace(/\*/g, ''));
+            const wrapped = raw.startsWith('*') ? `*${fixed}${raw.endsWith('*') ? '*' : ''}` : fixed;
+            return entry.slice(0, m.index) + m[1] + wrapped + entry.slice(m.index + m[1].length + raw.length);
+        }
+
+        function replaceBibliographyEntry(oldEntry, newEntry) {
+            const input = document.getElementById('bibliography-input');
+            input.value = input.value.split('\n').map(line => (line.trim() === oldEntry ? newEntry : line)).join('\n');
+        }
+
+        function fixSentenceCaseFor(entry) {
+            replaceBibliographyEntry(entry, sentenceCaseEntry(entry));
+            formatBibliography();
+            showToast('Applied sentence case to the title.');
+        }
+
+        function fixAllSentenceCase() {
+            const input = document.getElementById('bibliography-input');
+            let count = 0;
+            input.value = input.value.split('\n').map(line => {
+                const entry = line.trim();
+                if (!entry || !analyzeReferenceIssues(entry).includes(SENTENCE_CASE_ISSUE)) return line;
+                const fixed = sentenceCaseEntry(entry);
+                if (fixed !== entry) count++;
+                return fixed;
+            }).join('\n');
+            formatBibliography();
+            showToast(count ? `Applied sentence case to ${count} title${count === 1 ? '' : 's'}.` : 'No titles needed changes.');
+        }
+
+        // ── In-text citation vs reference list check ───────────────────────────
+        const CITATION_YEAR = '(?:\\d{4}[a-z]?|n\\.d\\.)';
+
+        function extractInTextCitations(text) {
+            const body = text.split(/\n\s*References\s*\n/i)[0];
+            const cites = [];
+            const add = (name, year) => {
+                const cleaned = name.replace(/\s+et\s+al\.?$/i, '').split(/\s+(?:&|and)\s+/)[0].replace(/^[("'“]+|["'”]+$/g, '').trim();
+                if (cleaned && /[A-Za-z]/.test(cleaned)) cites.push({ name: cleaned, year });
+            };
+            body.replace(/\(([^()]*?)\)/g, (m, inner) => {
+                inner.split(';').forEach(part => {
+                    const p = part.trim().replace(/^(?:see also|see|e\.g\.,?|cf\.|but see|as cited in|also)\s+/i, '');
+                    const mm = p.match(new RegExp(`^(.+?),?\\s+(${CITATION_YEAR})(?:[,\\s\\-–]|$)`));
+                    if (mm && !/^\d/.test(mm[1])) add(mm[1], mm[2]);
+                });
+                return m;
+            });
+            const narrative = new RegExp(`([A-Z][\\p{L}'’\\-]+)(?:\\s+(?:and|&)\\s+[A-Z][\\p{L}'’\\-]+|\\s+et\\s+al\\.?)?(?:['’]s)?\\s*\\((${CITATION_YEAR})(?:[,\\s][^)]*)?\\)`, 'gu');
+            let m;
+            while ((m = narrative.exec(body)) !== null) add(m[1], m[2]);
+            return cites;
+        }
+
+        function citationMatchesReference(cite, ref) {
+            const name = cite.name.toLowerCase();
+            const block = ref.author.toLowerCase();
+            const first = block.split(',')[0].trim();
+            const personal = /^[^,]+,\s*[A-Z]\./.test(ref.author);
+            const nameOk = first === name || first.startsWith(name) || name.startsWith(first)
+                || (!personal && new RegExp(`\\b${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`).test(block));
+            if (!nameOk) return false;
+            const cy = cite.year.toLowerCase();
+            const ry = ref.year.toLowerCase();
+            if (cy === 'n.d.') return /^n\.d\./.test(ry);
+            return ry.startsWith(cy.slice(0, 4)) && (!/[a-z]$/.test(cy) || ry === cy);
+        }
+
+        function checkCitationsAgainstReferences() {
+            const manuscript = document.getElementById('manuscript-input').value;
+            const out = document.getElementById('citation-check-results');
+            if (!manuscript.trim()) { out.innerHTML = '<p class="text-slate-500">Paste your manuscript text above first.</p>'; return; }
+            const refs = parseBibliographyEntries(document.getElementById('bibliography-input').value).map(entry => {
+                const text = stripItalicMarkers(entry);
+                const year = (text.match(/\((\d{4}[a-z]?|n\.d\.(?:-[a-z])?)/i) || [])[1] || '';
+                return { entry, author: referenceAuthorBlock(entry), year };
+            });
+            const cites = extractInTextCitations(manuscript);
+            const seen = new Set();
+            const unique = cites.filter(c => { const k = `${c.name.toLowerCase()}|${c.year}`; if (seen.has(k)) return false; seen.add(k); return true; });
+            const missing = unique.filter(c => !refs.some(r => citationMatchesReference(c, r)));
+            const uncited = refs.filter(r => !unique.some(c => citationMatchesReference(c, r)));
+
+            const list = (items, render) => `<ul class="list-disc pl-5 space-y-1">${items.map(i => `<li>${escapeHtml(render(i))}</li>`).join('')}</ul>`;
+            let html = `<p class="font-semibold">${unique.length} in-text citation${unique.length === 1 ? '' : 's'} found, ${refs.length} reference${refs.length === 1 ? '' : 's'} listed.</p>`;
+            html += missing.length
+                ? `<p class="font-semibold text-rose-700 mt-2">Cited but not in the reference list (${missing.length}):</p>${list(missing, c => `${c.name}, ${c.year}`)}`
+                : '<p class="text-emerald-700 mt-2">Every in-text citation has a matching reference.</p>';
+            html += uncited.length
+                ? `<p class="font-semibold text-amber-700 mt-2">In the reference list but never cited (${uncited.length}):</p>${list(uncited, r => r.entry.slice(0, 110) + (r.entry.length > 110 ? '…' : ''))}`
+                : '<p class="text-emerald-700 mt-2">Every reference is cited in the text.</p>';
+            html += '<p class="text-slate-500 mt-2">Group-author abbreviations such as (WHO, 2020) and secondary citations are not matched automatically; check those by hand.</p>';
+            out.innerHTML = html;
+        }
+
+        // ── BibTeX / RIS import ────────────────────────────────────────────────
+        function cleanImportedText(value) {
+            return String(value || '').replace(/[{}]/g, '').replace(/\\&/g, '&').replace(/\s*--+\s*/g, '–').replace(/\s+/g, ' ').trim();
+        }
+
+        function personFromName(raw) {
+            const token = String(raw || '').trim();
+            if (/^\{.*\}$/.test(token)) return { name: cleanImportedText(token) };
+            const cleaned = cleanImportedText(token);
+            if (!cleaned) return null;
+            if (cleaned.includes(',')) {
+                const [family, given] = cleaned.split(/,\s*(.*)/);
+                return { family: family.trim(), given: (given || '').trim() };
+            }
+            const parts = cleaned.split(' ');
+            return parts.length > 1 ? { family: parts.pop(), given: parts.join(' ') } : { name: cleaned };
+        }
+
+        function personsToEditorString(people) {
+            return people.map(p => {
+                if (p.name) return p.name;
+                const initials = (p.given || '').split(/[\s\-]+/).filter(Boolean).map(x => x.charAt(0).toUpperCase() + '.').join(' ');
+                return initials ? `${p.family}, ${initials}` : p.family;
+            }).join('; ');
+        }
+
+        function bracedWords(raw) {
+            const words = [];
+            String(raw || '').replace(/\{([^{}]+)\}/g, (m, inner) => { words.push(inner); return m; });
+            return words;
+        }
+
+        function parseBibtexEntries(text) {
+            const entries = [];
+            const head = /@(\w+)\s*\{\s*([^,\s]*)\s*,/g;
+            let m;
+            while ((m = head.exec(text)) !== null) {
+                const type = m[1].toLowerCase();
+                if (['comment', 'string', 'preamble'].includes(type)) continue;
+                let i = head.lastIndex;
+                const fields = {};
+                while (i < text.length) {
+                    while (i < text.length && /[\s,]/.test(text[i])) i++;
+                    if (text[i] === '}' || i >= text.length) break;
+                    const name = (text.slice(i).match(/^[\w\-]+/) || [''])[0];
+                    if (!name) break;
+                    i += name.length;
+                    while (/\s/.test(text[i])) i++;
+                    if (text[i] !== '=') break;
+                    i++;
+                    while (/\s/.test(text[i])) i++;
+                    let value = '';
+                    if (text[i] === '{') {
+                        let depth = 0, start = i;
+                        for (; i < text.length; i++) {
+                            if (text[i] === '{') depth++;
+                            else if (text[i] === '}' && --depth === 0) { i++; break; }
+                        }
+                        value = text.slice(start + 1, i - 1);
+                    } else if (text[i] === '"') {
+                        let start = ++i;
+                        while (i < text.length && !(text[i] === '"' && text[i - 1] !== '\\')) i++;
+                        value = text.slice(start, i++);
+                    } else {
+                        let start = i;
+                        while (i < text.length && !/[,}]/.test(text[i])) i++;
+                        value = text.slice(start, i).trim();
+                    }
+                    fields[name.toLowerCase()] = value;
+                }
+                head.lastIndex = i;
+                entries.push({ type, fields });
+            }
+            return entries.map(({ type, fields: f }) => {
+                const people = v => (v ? v.split(/\s+and\s+/i).map(personFromName).filter(Boolean) : []);
+                const typeMap = { article: 'journal', book: 'book', inbook: 'chapter', incollection: 'chapter', inproceedings: 'chapter', conference: 'chapter',
+                    phdthesis: 'thesis', mastersthesis: 'thesis', techreport: 'report', report: 'report', software: 'software', dataset: 'dataset',
+                    misc: 'webpage', online: 'webpage', electronic: 'webpage', www: 'webpage' };
+                const itemType = typeMap[type] || 'report';
+                const year = (f.year || (f.date || '').slice(0, 4) || '').replace(/\D/g, '').slice(0, 4);
+                const source = itemType === 'journal' ? (f.journal || f.journaltitle)
+                    : itemType === 'thesis' ? f.school
+                    : (f.publisher || f.institution || f.organization || f.howpublished || '');
+                return {
+                    type: itemType, title: cleanImportedText(f.title), preserve: bracedWords(f.title), authors: people(f.author), year,
+                    source: cleanImportedText(source), volume: cleanImportedText(f.volume), issue: cleanImportedText(f.number || f.issue),
+                    pages: cleanImportedText(f.pages), doi: cleanImportedText(f.doi), url: f.doi ? '' : cleanImportedText(f.url),
+                    container: cleanImportedText(f.booktitle), editors: personsToEditorString(people(f.editor)),
+                    edition: cleanImportedText(f.edition), descriptor: type === 'mastersthesis' ? "Master's thesis" : ''
+                };
+            });
+        }
+
+        function parseRisEntries(text) {
+            const records = [];
+            let cur = null;
+            text.split(/\r?\n/).forEach(line => {
+                const m = line.match(/^([A-Z][A-Z0-9])\s{2}-\s?(.*)$/);
+                if (!m) return;
+                const [, tag, value] = m;
+                if (tag === 'TY') cur = { TY: value.trim(), AU: [], ED: [] };
+                else if (tag === 'ER') { if (cur) records.push(cur); cur = null; }
+                else if (cur) {
+                    if (tag === 'AU' || tag === 'A1') cur.AU.push(value);
+                    else if (tag === 'A2' || tag === 'ED') cur.ED.push(value);
+                    else if (!cur[tag]) cur[tag] = value.trim();
+                }
+            });
+            if (cur) records.push(cur);
+            const typeMap = { JOUR: 'journal', BOOK: 'book', CHAP: 'chapter', CONF: 'chapter', CPAPER: 'chapter', THES: 'thesis', RPRT: 'report',
+                ELEC: 'webpage', WEB: 'webpage', DATA: 'dataset', COMP: 'software', VIDEO: 'video', PCAST: 'podcast' };
+            return records.map(r => {
+                const itemType = typeMap[r.TY] || 'report';
+                const container = r.T2 || r.JO || r.JF || r.JA || r.BT || '';
+                return {
+                    type: itemType, title: cleanImportedText(r.TI || r.T1), authors: r.AU.map(personFromName).filter(Boolean),
+                    year: ((r.PY || r.Y1 || r.DA || '').match(/\d{4}/) || [''])[0],
+                    source: cleanImportedText(itemType === 'journal' ? container : (r.PB || (itemType === 'thesis' ? r.PB : ''))),
+                    volume: cleanImportedText(r.VL), issue: cleanImportedText(r.IS),
+                    pages: cleanImportedText(r.SP ? (r.EP ? `${r.SP}-${r.EP}` : r.SP) : ''), doi: cleanImportedText(r.DO),
+                    url: r.DO ? '' : cleanImportedText(r.UR), container: itemType === 'journal' ? '' : cleanImportedText(container),
+                    editors: personsToEditorString(r.ED.map(personFromName).filter(Boolean)), edition: cleanImportedText(r.ET), descriptor: ''
+                };
+            });
+        }
+
+        function importReferencesText(text) {
+            const trimmed = text.trim();
+            const items = /^\s*@\w+\s*\{/m.test(trimmed) ? parseBibtexEntries(trimmed) : (/^TY {2}-/m.test(trimmed) ? parseRisEntries(trimmed) : []);
+            const valid = items.filter(it => it.title);
+            if (!valid.length) { showToast('No BibTeX or RIS references were found in that file.'); return 0; }
+            const entries = valid.map(it => generateApaReference({ monthDay: '', retrieved: '', translator: '', ...it }).marked);
+            const input = document.getElementById('bibliography-input');
+            const existing = input.value.trim();
+            bibInputIsSample = false;
+            input.value = existing ? `${existing}\n\n${entries.join('\n\n')}` : entries.join('\n\n');
+            formatBibliography();
+            showToast(`Imported ${valid.length} reference${valid.length === 1 ? '' : 's'}.`);
+            return valid.length;
+        }
+
+        function handleReferenceFileImport(event) {
+            const file = event.target.files && event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = () => { importReferencesText(String(reader.result || '')); event.target.value = ''; };
+            reader.readAsText(file);
+        }
+
         function formatBibliography() {
             const rawText = document.getElementById('bibliography-input').value;
             const parsedEntries = parseBibliographyEntries(rawText);
             const fixedResults = parsedEntries.map(applyBibliographyAutoFix);
             const fixedEntries = fixedResults.map(result => result.fixed);
             latestBibliographyFixNotes = fixedResults.flatMap(result => result.notes);
-            const sortedEntries = sortBibliographyEntries(fixedEntries);
+            const suffixed = assignYearSuffixes(sortBibliographyEntries(fixedEntries));
+            const sortedEntries = suffixed.entries;
+            latestBibliographyFixNotes.push(...suffixed.notes);
             updateBibliographyPreview(sortedEntries);
             renderBibliographyIssues(sortedEntries);
 
@@ -2072,7 +2463,114 @@
         }
 
         // DOC format exporter with MS Word parsing schemas
+        // ── Native .docx export (no library: minimal OOXML in a store-only ZIP) ─
+        const CRC_TABLE = (() => {
+            const table = new Uint32Array(256);
+            for (let n = 0; n < 256; n++) {
+                let c = n;
+                for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1;
+                table[n] = c >>> 0;
+            }
+            return table;
+        })();
+
+        function crc32(bytes) {
+            let c = 0xFFFFFFFF;
+            for (let i = 0; i < bytes.length; i++) c = CRC_TABLE[(c ^ bytes[i]) & 0xFF] ^ (c >>> 8);
+            return (c ^ 0xFFFFFFFF) >>> 0;
+        }
+
+        function buildZip(files) {
+            const enc = new TextEncoder();
+            const parts = [];
+            const central = [];
+            let offset = 0;
+            const u16 = n => [n & 0xFF, (n >>> 8) & 0xFF];
+            const u32 = n => [n & 0xFF, (n >>> 8) & 0xFF, (n >>> 16) & 0xFF, (n >>> 24) & 0xFF];
+            files.forEach(f => {
+                const name = enc.encode(f.name);
+                const data = typeof f.data === 'string' ? enc.encode(f.data) : f.data;
+                const crc = crc32(data);
+                const common = [...u16(20), ...u16(0x0800), ...u16(0), ...u16(0), ...u16(0x21), ...u32(crc), ...u32(data.length), ...u32(data.length), ...u16(name.length), ...u16(0)];
+                parts.push(new Uint8Array([...u32(0x04034b50), ...common]), name, data);
+                central.push(new Uint8Array([...u32(0x02014b50), ...u16(20), ...common, ...u16(0), ...u16(0), ...u16(0), ...u32(0), ...u32(offset)]), name);
+                offset += 30 + name.length + data.length;
+            });
+            const centralSize = central.reduce((n, c) => n + c.length, 0);
+            const end = new Uint8Array([...u32(0x06054b50), ...u16(0), ...u16(0), ...u16(files.length), ...u16(files.length), ...u32(centralSize), ...u32(offset), ...u16(0)]);
+            return new Blob([...parts, ...central, end], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
+        }
+
+        function xmlEscape(text) {
+            return String(text).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        }
+
+        // Flattens an element's children into [{ text, italic, bold }] runs.
+        function runsFromNode(node, inherited = {}) {
+            const runs = [];
+            node.childNodes.forEach(child => {
+                if (child.nodeType === 3) {
+                    if (child.nodeValue) runs.push({ text: child.nodeValue, ...inherited });
+                } else if (child.nodeType === 1) {
+                    const tag = child.tagName.toLowerCase();
+                    const style = { ...inherited };
+                    if (tag === 'i' || tag === 'em') style.italic = true;
+                    if (tag === 'b' || tag === 'strong') style.bold = true;
+                    runs.push(...runsFromNode(child, style));
+                }
+            });
+            return runs;
+        }
+
+        function docxParagraph(runs, { hanging = false, center = false } = {}) {
+            // Child order follows the OOXML schema (spacing, ind, jc); Word rejects out-of-order elements.
+            const pPr = `<w:pPr><w:spacing w:before="0" w:after="0" w:line="480" w:lineRule="auto"/>${hanging ? '<w:ind w:left="720" w:hanging="720"/>' : ''}${center ? '<w:jc w:val="center"/>' : ''}</w:pPr>`;
+            const body = runs.map(r => `<w:r><w:rPr><w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman" w:cs="Times New Roman"/>${r.bold ? '<w:b/>' : ''}${r.italic ? '<w:i/>' : ''}<w:sz w:val="24"/></w:rPr><w:t xml:space="preserve">${xmlEscape(r.text)}</w:t></w:r>`).join('');
+            return `<w:p>${pPr}${body}</w:p>`;
+        }
+
+        function buildDocxFromParagraphs(paragraphXml) {
+            const documentXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>${paragraphXml.join('')}<w:sectPr><w:pgSz w:w="12240" w:h="15840"/><w:pgMar w:top="1440" w:right="1440" w:bottom="1440" w:left="1440" w:header="720" w:footer="720" w:gutter="0"/></w:sectPr></w:body></w:document>`;
+            return buildZip([
+                { name: '[Content_Types].xml', data: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>' },
+                { name: '_rels/.rels', data: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>' },
+                { name: 'word/document.xml', data: documentXml }
+            ]);
+        }
+
+        function referenceParagraphElements() {
+            if (currentMode === 'citation') {
+                const el = document.getElementById('prev-citation-reference');
+                return el && currentCitationMarked ? [el] : [];
+            }
+            return [...document.querySelectorAll('#bibliography-preview-list .apa-reference-item')]
+                .filter(el => !/^Paste references and click/.test(el.innerText));
+        }
+
+        function exportReferencesDocx() {
+            const elements = referenceParagraphElements();
+            if (!elements.length) {
+                showToast(currentMode === 'citation' ? 'No citation generated yet.' : 'Format your bibliography first.');
+                return;
+            }
+            const paragraphs = [docxParagraph([{ text: 'References', bold: true }], { center: true }),
+                ...elements.map(el => docxParagraph(runsFromNode(el), { hanging: true }))];
+            const blob = buildDocxFromParagraphs(paragraphs);
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = currentMode === 'citation' ? 'APA_Citation.docx' : 'APA_References.docx';
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+            showToast('Word document (.docx) saved.');
+        }
+
         function exportToWord() {
+            if (currentMode === 'bibliography' || currentMode === 'citation') {
+                exportReferencesDocx();
+                return;
+            }
             let content;
             let filename;
             if (currentMode === 'table') {
@@ -2204,6 +2702,8 @@
 
         function switchCitationTab(tab) {
             const isPdf = tab === 'pdf';
+            document.getElementById('tab-btn-pdf').setAttribute('aria-pressed', String(isPdf));
+            document.getElementById('tab-btn-link').setAttribute('aria-pressed', String(!isPdf));
             const pdfSection = document.getElementById('citation-pdf-tab');
             const linkSection = document.getElementById('citation-link-tab');
             if (pdfSection) pdfSection.classList.toggle('hidden', !isPdf);
@@ -2373,8 +2873,7 @@
                 if (yearMatch) year = yearMatch[1];
             }
 
-            document.getElementById('cite-type').value = 'report';
-            handleCiteTypeChange();
+            setCiteTypeFromSource('report');
             document.getElementById('cite-title').value = toSentenceCase(title);
             document.getElementById('cite-authors').value = author;
             document.getElementById('cite-year').value = year;
@@ -2440,8 +2939,7 @@
                     const resp = await fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(articleSlug)}`);
                     if (resp.ok) {
                         const data = await resp.json();
-                        document.getElementById('cite-type').value = 'webpage';
-                        handleCiteTypeChange();
+                        setCiteTypeFromSource('webpage');
                         document.getElementById('cite-title').value = toSentenceCase(data.title || articleSlug.replace(/_/g, ' '));
                         document.getElementById('cite-authors').value = '';
                         document.getElementById('cite-year').value = new Date().getFullYear().toString();
@@ -2505,7 +3003,9 @@
             const container = Array.isArray(msg['container-title']) ? msg['container-title'][0] : msg['container-title'];
 
             if (crossrefType === 'book' || crossrefType === 'monograph') return 'book';
-            if (crossrefType === 'book-chapter' || crossrefType === 'book-part') return 'report';
+            if (crossrefType === 'book-chapter' || crossrefType === 'book-part' || crossrefType === 'reference-entry') return 'chapter';
+            if (crossrefType === 'dissertation') return 'thesis';
+            if (crossrefType === 'dataset') return 'dataset';
             if (crossrefType === 'journal-article' || crossrefType === 'proceedings-article' ||
                 crossrefType === 'journal' || container || msg.volume || msg.issue || msg.page) {
                 return 'journal';
@@ -2517,8 +3017,7 @@
         }
 
         function populateFromCrossref(msg, cleanDoi) {
-            document.getElementById('cite-type').value = inferCrossrefSourceType(msg);
-            handleCiteTypeChange();
+            setCiteTypeFromSource(inferCrossrefSourceType(msg));
 
             const rawTitle = Array.isArray(msg.title) ? msg.title[0] : (msg.title || '');
             document.getElementById('cite-title').value = toSentenceCase(rawTitle);
@@ -2537,8 +3036,22 @@
             }
             document.getElementById('cite-year').value = year;
 
-            const container = Array.isArray(msg['container-title']) ? msg['container-title'][0] : (msg['container-title'] || msg.publisher || '');
-            document.getElementById('cite-source').value = container ? toTitleCase(container) : '';
+            const containerRaw = Array.isArray(msg['container-title']) ? msg['container-title'][0] : (msg['container-title'] || '');
+            const citeType = document.getElementById('cite-type').value;
+            if (citeType === 'chapter') {
+                document.getElementById('cite-container').value = toSentenceCase(containerRaw || '');
+                document.getElementById('cite-editors').value = Array.isArray(msg.editor) && msg.editor.length ? formatAuthorsApa(msg.editor) : '';
+                document.getElementById('cite-source').value = msg.publisher || '';
+            } else if (citeType === 'thesis') {
+                const inst = Array.isArray(msg.institution) && msg.institution[0] ? msg.institution[0].name : '';
+                document.getElementById('cite-source').value = inst || msg.publisher || '';
+            } else if (citeType === 'journal') {
+                document.getElementById('cite-source').value = (containerRaw || msg.publisher) ? toTitleCase(containerRaw || msg.publisher) : '';
+            } else {
+                document.getElementById('cite-source').value = containerRaw || msg.publisher || '';
+            }
+            const editionNumber = parseInt(msg['edition-number'], 10);
+            if (['book', 'chapter'].includes(citeType) && editionNumber > 1) document.getElementById('cite-edition').value = String(editionNumber);
 
             document.getElementById('cite-volume').value = msg.volume || '';
             document.getElementById('cite-issue').value = msg.issue || '';
@@ -2553,8 +3066,9 @@
         function populateFromDatacite(attrs, cleanDoi) {
             const resourceType = ((attrs.types && (attrs.types.resourceTypeGeneral || attrs.types.resourceType)) || '').toLowerCase();
             const isArticle = resourceType.includes('article') || resourceType.includes('journal');
-            document.getElementById('cite-type').value = isArticle ? 'journal' : 'report';
-            handleCiteTypeChange();
+            const dataciteType = isArticle ? 'journal' : resourceType.includes('dataset') ? 'dataset'
+                : resourceType.includes('software') ? 'software' : resourceType.includes('dissertation') ? 'thesis' : 'report';
+            setCiteTypeFromSource(dataciteType);
 
             const title = attrs.titles && attrs.titles[0] ? attrs.titles[0].title : '';
             document.getElementById('cite-title').value = toSentenceCase(title);
@@ -2566,7 +3080,8 @@
             }
 
             document.getElementById('cite-year').value = attrs.publicationYear ? attrs.publicationYear.toString() : '';
-            document.getElementById('cite-source').value = attrs.publisher || 'arXiv';
+            document.getElementById('cite-source').value = (attrs.publisher && attrs.publisher.name) || attrs.publisher || 'arXiv';
+            if (['dataset', 'software'].includes(dataciteType) && attrs.version) document.getElementById('cite-edition').value = `Version ${attrs.version}`;
             document.getElementById('cite-volume').value = '';
             document.getElementById('cite-issue').value = '';
             document.getElementById('cite-pages').value = '';
@@ -2744,8 +3259,7 @@
                 const resp = await fetch(`https://www.youtube.com/oembed?url=${encodeURIComponent(canonical)}&format=json`);
                 if (!resp.ok) return false;
                 const data = await resp.json();
-                document.getElementById('cite-type').value = 'video';
-                handleCiteTypeChange();
+                setCiteTypeFromSource('video');
                 document.getElementById('cite-title').value = toSentenceCase(data.title || '', [data.author_name]);
                 document.getElementById('cite-authors').value = data.author_name || '';
                 document.getElementById('cite-year').value = '';
@@ -2882,8 +3396,7 @@
             const isJournalPage = !!(meta && meta.journal);
             const type = isJournalPage ? 'journal' : (isPdf ? 'report' : (isNewsHost(parsedUrl.hostname) ? 'article' : 'webpage'));
 
-            document.getElementById('cite-type').value = type;
-            handleCiteTypeChange();
+            setCiteTypeFromSource(type);
 
             const isHomePage = parsedUrl.pathname === '/' || parsedUrl.pathname === '';
             const rawTitle = (meta && meta.title) || titleCandidate || (isHomePage && siteName ? siteName : (domainName ? `${domainName} home page` : 'Webpage'));
@@ -2934,8 +3447,7 @@
         }
 
         function populateLaudatoSiCitation(url) {
-            document.getElementById('cite-type').value = 'religious';
-            handleCiteTypeChange();
+            setCiteTypeFromSource('religious');
             document.getElementById('cite-title').value = 'Laudato si\': On care for our common home';
             document.getElementById('cite-authors').value = 'Francis, P.';
             document.getElementById('cite-year').value = '2015';
@@ -3120,7 +3632,8 @@
             const letters = str.replace(/[^A-Za-z]/g, '');
             const isAllUpper = letters.length > 3 && letters === letters.toUpperCase();
 
-            const interiorWords = words.slice(1);
+            // Short function words (and, of, in…) are lowercase in both styles, so judge only longer words.
+            const interiorWords = words.slice(1).filter(w => w.replace(/[^a-zA-Z]/g, '').length > 3);
             let capitalizedCount = 0;
             interiorWords.forEach(w => {
                 const plain = w.replace(/^[^a-zA-Z]+|[^a-zA-Z]+$/g, '');
@@ -3186,6 +3699,7 @@
         function parseAuthorsInput(raw) {
             if (!raw) return [];
             const trimmed = raw.trim();
+            if (/\[@[^\]]+\]/.test(trimmed)) return [{ name: trimmed }];
             if (isCorporateAuthor(trimmed) && !trimmed.includes('&') && !trimmed.includes(';')) {
                 return [{ name: trimmed }];
             }
@@ -3261,7 +3775,7 @@
                 if (typeof a === 'string') {
                     return a.split(',')[0].trim().split(/\s+/).pop();
                 }
-                if (a.name) return a.name;
+                if (a.name) return a.name.replace(/\s*\[@[^\]]+\]/, '');
                 return a.family || a.familyName || 'Author';
             }).filter(Boolean);
 
@@ -3286,41 +3800,77 @@
             };
         }
 
+        function formatEditorsApa(raw) {
+            const names = parseAuthorsInput(raw).map(a => {
+                if (typeof a === 'string') return a;
+                if (a.name) return a.name;
+                const initials = (a.given || '').split(/[\s\-]+/).filter(Boolean).map(x => x.charAt(0).toUpperCase() + '.').join(' ');
+                return initials ? `${initials} ${a.family}` : a.family;
+            }).filter(Boolean);
+            if (!names.length) return { text: '', count: 0 };
+            const text = names.length === 1 ? names[0]
+                : names.length === 2 ? `${names[0]} & ${names[1]}`
+                : `${names.slice(0, -1).join(', ')}, & ${names[names.length - 1]}`;
+            return { text, count: names.length };
+        }
+
+        function ordinalSuffix(n) {
+            const v = n % 100;
+            if (v >= 11 && v <= 13) return `${n}th`;
+            return `${n}${({ 1: 'st', 2: 'nd', 3: 'rd' })[n % 10] || 'th'}`;
+        }
+
+        function normalizeEdition(raw) {
+            const e = (raw || '').replace(/\*/g, '').trim();
+            if (!e) return '';
+            if (/^\d+$/.test(e)) return `${ordinalSuffix(parseInt(e, 10))} ed.`;
+            if (/^\d+(st|nd|rd|th)$/i.test(e)) return `${e.toLowerCase()} ed.`;
+            if (/^rev(ised)?\.?(\s*ed\.?)?$/i.test(e)) return 'Rev. ed.';
+            return e;
+        }
+
         function generateApaReference(item) {
             const clean = v => stripItalicMarkers(v || '').trim();
+            const type = item.type;
             const authorsStr = formatAuthorsApa(item.authors);
             let dateStr = '(n.d.).';
             if (item.year) {
-                const showMonthDay = item.monthDay && ['webpage', 'article', 'video'].includes(item.type);
+                const showMonthDay = item.monthDay && ['webpage', 'article', 'video', 'podcast', 'social'].includes(type);
                 dateStr = showMonthDay ? `(${clean(item.year)}, ${clean(item.monthDay)}).` : `(${clean(item.year)}).`;
             }
 
-            const rawTitle = clean(item.title) || 'Untitled document';
-            const title = toSentenceCase(rawTitle).replace(/\.+$/, '');
+            const title = toSentenceCase(clean(item.title) || 'Untitled document', item.preserve).replace(/\.+$/, '');
             const endsInQuestion = /[?!]$/.test(title);
             const siteName = clean(item.source);
             const doiUrl = item.doi
                 ? (item.doi.startsWith('http') ? item.doi : `https://doi.org/${item.doi.replace(/^doi:\s*/i, '')}`)
                 : (item.url || '');
-            const locator = doiUrl ? ` ${doiUrl}` : '';
+            const retrieved = clean(item.retrieved);
+            const locator = doiUrl ? (retrieved && !item.doi ? ` Retrieved ${retrieved}, from ${doiUrl}` : ` ${doiUrl}`) : '';
 
-            // Whether the work title is italic depends on the source type:
-            // stand-alone works are italic, parts of a larger container (articles) are not.
-            const italicTitle = item.type !== 'journal' && item.type !== 'article';
-            const descriptor = item.type === 'religious' ? (item.descriptor || '[Encyclical]') : (item.type === 'video' ? '[Video]' : '');
-            let titleSeg;
-            if (italicTitle) {
-                titleSeg = endsInQuestion && !descriptor ? `*${title}*` : `*${title}*${descriptor ? ' ' + descriptor : ''}.`;
-            } else {
-                titleSeg = endsInQuestion ? title : `${title}.`;
-            }
+            // Stand-alone works are italic; parts of a larger container (articles, chapters) are not.
+            const italicTitle = !['journal', 'article', 'chapter'].includes(type);
+            const edition = normalizeEdition(item.edition);
+            const translator = clean(item.translator);
+            const parenParts = [];
+            if (['book', 'report', 'dataset', 'software', 'podcast'].includes(type) && edition) parenParts.push(edition);
+            if (type === 'book' && translator) parenParts.push(`${translator}, Trans.`);
+            const parenStr = parenParts.length ? `(${parenParts.join('; ')})` : '';
+
+            const descText = clean(item.descriptor).replace(/^\[|\]$/g, '') || DEFAULT_DESCRIPTORS[type] || '';
+            let bracketStr = '';
+            if (descText) bracketStr = type === 'thesis' && siteName ? `[${descText}, ${siteName}]` : `[${descText}]`;
+
+            const titleCore = italicTitle ? `*${title}*` : title;
+            const tail = [parenStr, bracketStr].filter(Boolean).join(' ');
+            const titleSeg = tail ? `${titleCore} ${tail}.` : (endsInQuestion ? titleCore : `${titleCore}.`);
 
             const head = authorsStr
                 ? `${authorsStr}${/\.$/.test(authorsStr) ? '' : '.'} ${dateStr} ${titleSeg}`
                 : `${titleSeg} ${dateStr}`;
 
             let container = '';
-            if (item.type === 'journal') {
+            if (type === 'journal') {
                 const journalTitle = siteName ? toTitleCase(siteName) : '';
                 container = journalTitle ? `*${journalTitle}*` : '';
                 const volume = clean(item.volume);
@@ -3330,8 +3880,23 @@
                 if (issue) container += `(${issue})`;
                 if (pages) container += `${container ? ', ' : ''}${pages}`;
                 if (container) container += '.';
-            } else if (item.type === 'article') {
+            } else if (type === 'article') {
                 container = siteName ? `*${siteName}*.` : '';
+            } else if (type === 'chapter') {
+                const editors = formatEditorsApa(clean(item.editors));
+                const bookTitle = toSentenceCase(clean(item.container)).replace(/\.+$/, '');
+                const pages = clean(item.pages).replace(/(\w)\s*[-‐‑‒]\s*(\w)/g, '$1–$2');
+                const info = [edition, pages ? `${/[–,]/.test(pages) ? 'pp.' : 'p.'} ${pages}` : ''].filter(Boolean).join(', ');
+                let inPart = 'In';
+                if (editors.text) inPart += ` ${editors.text} (${editors.count > 1 ? 'Eds.' : 'Ed.'}),`;
+                if (bookTitle) inPart += ` *${bookTitle}*`;
+                if (info) inPart += ` (${info})`;
+                container = `${inPart.replace(/,$/, '')}.${siteName ? ` ${siteName.replace(/\.+$/, '')}.` : ''}`;
+            } else if (type === 'podcast') {
+                const show = clean(item.container);
+                container = `${show ? `In *${show}*.` : ''}${siteName ? ` ${siteName.replace(/\.+$/, '')}.` : ''}`.trim();
+            } else if (type === 'thesis') {
+                container = '';
             } else if (siteName) {
                 // Publisher / website name; omitted when it is already the author.
                 const sameAsAuthor = authorsStr && siteName.toLowerCase() === authorsStr.replace(/\.$/, '').toLowerCase();
@@ -3346,29 +3911,69 @@
             };
         }
 
+        const EXTRA_CITE_FIELDS = ['cite-container', 'cite-editors', 'cite-edition', 'cite-translator', 'cite-descriptor'];
+
+        function resetExtraCitationFields() {
+            EXTRA_CITE_FIELDS.forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+            const on = document.getElementById('cite-retrieved-on');
+            if (on) on.checked = false;
+        }
+
+        function setCiteTypeFromSource(type) {
+            resetExtraCitationFields();
+            document.getElementById('cite-type').value = type;
+            handleCiteTypeChange();
+        }
+
+        const CITE_TYPE_CONFIG = {
+            journal:   { source: 'Journal Name (Title Case)', fields: ['volume', 'issue', 'pages'] },
+            book:      { source: 'Publisher Name', fields: ['edition', 'translator'], edition: 'Edition (e.g. 2nd)' },
+            chapter:   { source: 'Publisher Name', fields: ['container', 'editors', 'edition', 'pages'], container: 'Book Title', edition: 'Edition (optional, e.g. 2nd)' },
+            webpage:   { source: 'Website / Organization Name', fields: ['monthday', 'retrieved'] },
+            article:   { source: 'Publication / Blog Name (italicized)', fields: ['monthday'] },
+            video:     { source: 'Platform (e.g. YouTube)', fields: ['monthday', 'descriptor'] },
+            report:    { source: 'Publisher / Sponsoring Organization', fields: ['edition', 'descriptor'], edition: 'Report number (e.g. No. 12)' },
+            religious: { source: 'Publisher / Religious Institution', fields: ['descriptor'] },
+            thesis:    { source: 'University', fields: ['descriptor'] },
+            dataset:   { source: 'Publisher / Repository', fields: ['edition', 'descriptor'], edition: 'Version (e.g. Version 2.1)' },
+            software:  { source: 'Publisher / Developer', fields: ['edition', 'descriptor'], edition: 'Version (e.g. Version 2.1)' },
+            podcast:   { source: 'Publisher / Network', fields: ['container', 'edition', 'monthday', 'descriptor'], container: 'Podcast Name', edition: 'Episode (e.g. No. 12)' },
+            social:    { source: 'Platform (e.g. X, Instagram)', fields: ['monthday', 'descriptor'] }
+        };
+        const DEFAULT_DESCRIPTORS = {
+            religious: 'Encyclical', video: 'Video', thesis: 'Doctoral dissertation', dataset: 'Data set',
+            software: 'Computer software', podcast: 'Audio podcast episode', social: 'Social media post'
+        };
+
         function handleCiteTypeChange() {
             const type = document.getElementById('cite-type').value;
-            const isJournal = type === 'journal';
-            const isWebpage = type === 'webpage' || type === 'article' || type === 'video';
+            const cfg = CITE_TYPE_CONFIG[type] || CITE_TYPE_CONFIG.report;
+            const show = (id, on, display) => { const el = document.getElementById(id); if (el) el.style.display = on ? (display || 'block') : 'none'; };
 
-            const journalMeta = document.getElementById('cite-journal-meta-wrapper');
-            const monthDayWrapper = document.getElementById('cite-monthday-wrapper');
+            ['volume', 'issue', 'pages'].forEach(f => show(`cite-wrap-${f}`, cfg.fields.includes(f)));
+            show('cite-journal-meta-wrapper', ['volume', 'issue', 'pages'].some(f => cfg.fields.includes(f)), 'grid');
+            show('cite-monthday-wrapper', cfg.fields.includes('monthday'));
+            ['container', 'editors', 'edition', 'translator', 'descriptor'].forEach(f => show(`cite-wrap-${f}`, cfg.fields.includes(f)));
+            show('cite-wrap-retrieved', cfg.fields.includes('retrieved'), 'flex');
+            const anyExtra = ['container', 'editors', 'edition', 'translator', 'descriptor', 'retrieved'].some(f => cfg.fields.includes(f));
+            show('cite-extra-fields', anyExtra, 'grid');
+
             const sourceLabel = document.getElementById('cite-source-label');
-
-            if (journalMeta) journalMeta.style.display = isJournal ? 'grid' : 'none';
-            if (monthDayWrapper) monthDayWrapper.style.display = isWebpage ? 'block' : 'none';
-
-            if (sourceLabel) {
-                if (isJournal) sourceLabel.innerText = 'Journal Name (Title Case)';
-                else if (type === 'book') sourceLabel.innerText = 'Publisher Name';
-                else if (isWebpage) sourceLabel.innerText = 'Website / Organization Name';
-                else if (type === 'video') sourceLabel.innerText = 'Platform (e.g. YouTube)';
-                else if (type === 'article') sourceLabel.innerText = 'Publication / Blog Name (italicized)';
-                else if (type === 'religious') sourceLabel.innerText = 'Publisher / Religious Institution';
-                else sourceLabel.innerText = 'Publisher / Sponsoring Organization';
-            }
+            if (sourceLabel) sourceLabel.innerText = cfg.source;
+            const containerLabel = document.getElementById('cite-container-label');
+            if (containerLabel) containerLabel.innerText = cfg.container || 'Container Title';
+            const editionLabel = document.getElementById('cite-edition-label');
+            if (editionLabel) editionLabel.innerText = cfg.edition || 'Edition';
+            const descriptorEl = document.getElementById('cite-descriptor');
+            if (descriptorEl) descriptorEl.placeholder = DEFAULT_DESCRIPTORS[type] || 'e.g. Report';
+            const retrievedDate = document.getElementById('cite-retrieved-date');
+            if (retrievedDate && !retrievedDate.value) retrievedDate.value = formatLongDate(new Date());
 
             updateCitationPreview();
+        }
+
+        function formatLongDate(d) {
+            return `${MONTH_NAMES[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
         }
 
         function autoApplySentenceCaseToTitle() {
@@ -3392,6 +3997,7 @@
             const pages = document.getElementById('cite-pages') ? document.getElementById('cite-pages').value.trim() : '';
             const doiUrl = document.getElementById('cite-doi-url').value.trim();
 
+            const val = id => (document.getElementById(id) ? document.getElementById(id).value.trim() : '');
             const doiMatch = doiUrl.match(/^(?:https?:\/\/(?:dx\.)?doi\.org\/|doi:\s*)?(10\.\d{4,9}\/\S+)$/i);
 
             const item = {
@@ -3404,7 +4010,12 @@
                 volume,
                 issue,
                 pages,
-                descriptor: type === 'religious' ? '[Encyclical]' : '',
+                container: val('cite-container'),
+                editors: val('cite-editors'),
+                edition: val('cite-edition'),
+                translator: val('cite-translator'),
+                descriptor: val('cite-descriptor'),
+                retrieved: document.getElementById('cite-retrieved-on') && document.getElementById('cite-retrieved-on').checked && CITE_TYPE_CONFIG[type].fields.includes('retrieved') ? val('cite-retrieved-date') : '',
                 doi: doiMatch ? `https://doi.org/${doiMatch[1]}` : '',
                 url: doiMatch ? '' : (/^(?:www\.)\S+$/i.test(doiUrl) ? `https://${doiUrl}` : doiUrl)
             };
@@ -3472,6 +4083,7 @@
             if (document.getElementById('cite-pages')) document.getElementById('cite-pages').value = '';
             document.getElementById('cite-doi-url').value = '';
             document.getElementById('citation-url-input').value = '';
+            resetExtraCitationFields();
             clearFieldProvenance();
             setCitationStatus(null);
             updateCitationPreview();
@@ -3483,8 +4095,7 @@
             if (!s) return;
             clearFieldProvenance();
 
-            document.getElementById('cite-type').value = s.type;
-            handleCiteTypeChange();
+            setCiteTypeFromSource(s.type);
             document.getElementById('cite-title').value = s.title;
             document.getElementById('cite-authors').value = s.authors;
             document.getElementById('cite-year').value = s.year;

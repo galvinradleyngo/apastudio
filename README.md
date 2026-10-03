@@ -34,3 +34,11 @@ A modern, browser-based academic formatting workspace for researchers, educators
 - The homepage lists the three tools in workflow order (Citation Generator, Bibliography Formatter, Table Formatter). Table templates open from the Table Formatter card.
 - Your bibliography text is saved automatically in this browser (localStorage); the homepage offers to resume or discard it. The built-in sample bibliography is never saved.
 - Tests: `node tests/home-and-draft.test.js`.
+
+## More features
+- **Source types:** journal article, book (edition, translator), book chapter (editors, pages), webpage (optional retrieval date), news/blog article, video, podcast episode, social post, thesis, dataset, software, report, religious/foundational document.
+- **Bibliography tools:** en-dash page ranges, automatic a/b year suffixes for same-author same-year works, one-click sentence-case fixes for flagged titles, BibTeX/RIS import, and an in-text citation vs reference-list check.
+- **Export:** the bibliography and single citations download as real `.docx` files (Times New Roman, double-spaced, hanging indent, italics). Tables still export as Word-compatible `.doc`.
+- **Accessibility:** labelled form fields, live regions for status messages, visible keyboard focus.
+- `apa_table_formatter.html` now just redirects to `index.html`.
+- Tests: `node tests/features.test.js`.
