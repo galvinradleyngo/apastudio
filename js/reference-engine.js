@@ -600,10 +600,16 @@ function personFromName(raw) {
     return parts.length > 1 ? { family: parts.pop(), given: parts.join(' ') } : { name: cleaned };
 }
 
+// "J. A." stays "J. A."; "Jean-Paul" or "J.-P." becomes "J.-P." (APA keeps the hyphen).
+function initialsFromGiven(given) {
+    return String(given || '').split(/\s+/).filter(Boolean)
+        .map(token => token.split('-').filter(Boolean).map(p => p.charAt(0).toUpperCase() + '.').join('-')).join(' ');
+}
+
 function personsToEditorString(people) {
     return people.map(p => {
         if (p.name) return p.name;
-        const initials = (p.given || '').split(/[\s\-]+/).filter(Boolean).map(x => x.charAt(0).toUpperCase() + '.').join(' ');
+        const initials = initialsFromGiven(p.given);
         return initials ? `${p.family}, ${initials}` : p.family;
     }).join('; ');
 }
@@ -833,7 +839,7 @@ function parseAuthorsInput(raw) {
     while (i < parts.length) {
         const p1 = parts[i];
         const p2 = parts[i + 1];
-        if (p2 && /^[A-Z](\.[A-Z])*\.?$/i.test(p2.replace(/\s+/g, ''))) {
+        if (p2 && /^[A-Z](?:\.?-?[A-Z])*\.?$/i.test(p2.replace(/\s+/g, ''))) {
             authors.push({ family: p1, given: p2 });
             i += 2;
         } else if (p1.includes(' ') && !p1.includes(',')) {
@@ -868,13 +874,16 @@ function formatAuthorsApa(authors) {
         }
         if (a.name) return a.name;
         const family = a.family || a.familyName || '';
-        let initials = '';
-        const given = a.given || a.givenName || '';
-        if (given) {
-            initials = given.split(/[\s\-]+/).filter(Boolean).map(p => p.charAt(0).toUpperCase() + '.').join(' ');
-        }
-        return initials ? `${family}, ${initials}` : family;
+        const initials = initialsFromGiven(a.given || a.givenName || '');
+        const suffix = a.suffix ? `, ${a.suffix}` : '';
+        return initials ? `${family}, ${initials}${suffix}` : family;
     }).filter(Boolean);
+
+    // Parsed long lists: the last author follows an ellipsis ("A, B., ... Z, Y.").
+    const ellipsisIndex = authors.findIndex(a => a && a.afterEllipsis);
+    if (ellipsisIndex > 0 && parsed.length === authors.length) {
+        return `${parsed.slice(0, ellipsisIndex).join(', ')}, ... ${parsed[ellipsisIndex]}`;
+    }
 
     if (!parsed.length) return '';
     if (parsed.length === 1) return parsed[0];
@@ -926,7 +935,7 @@ function formatEditorsApa(raw) {
     const names = parseAuthorsInput(raw).map(a => {
         if (typeof a === 'string') return a;
         if (a.name) return a.name;
-        const initials = (a.given || '').split(/[\s\-]+/).filter(Boolean).map(x => x.charAt(0).toUpperCase() + '.').join(' ');
+        const initials = initialsFromGiven(a.given);
         return initials ? `${initials} ${a.family}` : a.family;
     }).filter(Boolean);
     if (!names.length) return { text: '', count: 0 };

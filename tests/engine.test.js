@@ -5,8 +5,8 @@ const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
 
-const ctx = vm.createContext({ console });
-for (const f of ['reference-engine.js', 'reference-parser.js']) {
+const ctx = vm.createContext({ console, URL });
+for (const f of ['reference-engine.js', 'reference-parser.js', 'web-metadata.js']) {
   vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'js', f), 'utf8'), ctx, { filename: f });
 }
 const run = (expr, vars = {}) => { Object.assign(ctx, { __v: vars }); return vm.runInContext(expr, ctx); };
@@ -86,7 +86,6 @@ for (const [name, input, expected] of messy) {
 for (const [name, input] of [
   ['unknown author/title ambiguity', 'The effects of sleep. (2020). Some Press.'],
   ['no year', 'Doe, J. Untitled notes. Press.'],
-  ['author list with ellipsis', 'A, B., B, C., C, D., ... Z, Y. (2020). Many authors. Press.'],
   ['wording would change', 'Apple. (2024). *Apple*. Apple. https://apple.com']
 ]) {
   check(`left as typed: ${name}`, () => {
@@ -102,6 +101,33 @@ check('rebuild never drops or adds words (fuzz over the corpus with mangled spac
     const r = rebuild(mangled);
     if (r.rebuilt) assert.strictEqual(run('referenceWordSignature(__v.a)', { a: r.text }), run('referenceWordSignature(__v.a)', { a: mangled }));
   }
+});
+
+// Author edge cases that used to be left as typed.
+check('suffix (Jr.) and hyphenated initials round-trip', () => {
+  const input = 'Smith, J. A., Jr., & Martin, J.-P. (2020). Names. Press.';
+  const r = rebuild(input);
+  assert.ok(r.rebuilt, r.reason);
+  assert.strictEqual(r.text, 'Smith, J. A., Jr., & Martin, J.-P. (2020). *Names*. Press.');
+  assert.strictEqual(rebuild(r.text).text, r.text);
+});
+check('long author list with an ellipsis round-trips (19 authors, ellipsis, last author)', () => {
+  const names = Array.from({ length: 19 }, (_, i) => `Author${String.fromCharCode(65 + i)}, A.`);
+  const input = `${names.join(', ')}, ... Final, Z. (2020). Big team science. Press.`;
+  const r = rebuild(input);
+  assert.ok(r.rebuilt, r.reason);
+  assert.strictEqual(r.text, `${names.join(', ')}, ... Final, Z. (2020). *Big team science*. Press.`);
+  assert.strictEqual(rebuild(r.text).text, r.text);
+});
+check('plain-text news article is recognized from the URL', () => {
+  const r = rebuild('Doe, J. (2024, March 5). Why sleep matters. The New York Times. https://www.nytimes.com/x');
+  assert.ok(r.rebuilt, r.reason);
+  assert.strictEqual(r.text, 'Doe, J. (2024, March 5). Why sleep matters. *The New York Times*. https://www.nytimes.com/x');
+  const blog = rebuild('Doe, J. (2024). A normal report. Some Agency. https://agency.gov/r');
+  assert.strictEqual(blog.text, 'Doe, J. (2024). *A normal report*. Some Agency. https://agency.gov/r');
+});
+check('citation-form author input accepts hyphenated initials', () => {
+  assert.strictEqual(run("formatAuthorsApa(parseAuthorsInput('Martin, J.-P., & Lee, R.'))"), 'Martin, J.-P., & Lee, R.');
 });
 
 // Existing pure helpers also run without a browser.

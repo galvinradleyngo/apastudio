@@ -16,6 +16,16 @@ function looksLikeOrganizationName(name) {
 function parseAuthorBlock(rawBlock) {
     const block = stripItalicMarkers(rawBlock).replace(/\s+/g, ' ').trim();
     if (!block) return { ok: true, authors: [] };
+    // Long list: "A, B., ... Z, Y." (the last author follows an ellipsis).
+    const ellipsis = block.split(/,\s*(?:\.\.\.|…|\. \. \.)\s*/);
+    if (ellipsis.length === 2) {
+        const head = parseAuthorBlock(ellipsis[0]);
+        const last = parseAuthorBlock(ellipsis[1]);
+        if (!head.ok || !last.ok || last.authors.length !== 1 || !last.authors[0].family || head.authors.length < 2) {
+            return { ok: false, reason: 'unusual long author list' };
+        }
+        return { ok: true, authors: [...head.authors, { ...last.authors[0], afterEllipsis: true }] };
+    }
     if (/\.\.\.|…/.test(block)) return { ok: false, reason: 'long author list with an ellipsis' };
     if (/\[@[^\]]+\]/.test(block)) return { ok: true, authors: [{ name: block.replace(/\.$/, '') }] };
 
@@ -30,7 +40,12 @@ function parseAuthorBlock(rawBlock) {
         const family = tokens[i];
         const given = tokens[i + 1];
         if (!given || INITIALS_RE.test(family) || !INITIALS_RE.test(given)) return { ok: false, reason: 'unusual author formatting' };
-        authors.push({ family, given });
+        const person = { family, given };
+        if (/^(?:Jr|Sr|II|III|IV)\.?$/i.test(tokens[i + 2] || '')) {
+            person.suffix = tokens[i + 2].replace(/^(jr|sr)$/i, m => `${m[0].toUpperCase()}${m[1].toLowerCase()}.`);
+            i += 1;
+        }
+        authors.push(person);
     }
     return { ok: true, authors };
 }
@@ -189,6 +204,16 @@ function parseReferenceFields(entry) {
     const italicRemainder = remainder.match(/^\*([^*]+)\*\.?$/);
     if (hasMarkers && !titleItalic && italicRemainder && !noAuthorTitle) {
         Object.assign(item, { type: 'article', source: italicRemainder[1].trim(), monthDay });
+        return { ok: true, item, hasMarkers };
+    }
+
+    // 4b. Plain text from a news or blog site: the URL tells us the publication is a periodical.
+    let newsSite = false;
+    if (!hasMarkers && url && !doi && remainder && !noAuthorTitle && typeof isNewsHost === 'function') {
+        try { newsSite = isNewsHost(new URL(url).hostname); } catch (e) { newsSite = false; }
+    }
+    if (newsSite && !titleItalic) {
+        Object.assign(item, { type: 'article', source: plainRemainder(), monthDay });
         return { ok: true, item, hasMarkers };
     }
 
