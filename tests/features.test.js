@@ -108,7 +108,7 @@ const check = async (name, fn) => { try { await fn(); console.log('ok  -', name)
       return { text: document.getElementById('bibliography-input').value, html: document.getElementById('bibliography-preview-list').innerHTML };
     }, on);
     const on = await run(true);
-    assert.ok(on.text.includes('*Journal of Educational Computing*, *35*(2), 145–162.'), on.text);
+    assert.ok(!on.text.includes('*') && on.text.includes('Journal of Educational Computing, 35(2), 145–162.'), on.text);
     assert.ok(on.html.includes('<i>Journal of Educational Computing</i>, <i>35</i>(2)'), on.html);
     const off = await run(false);
     assert.ok(!off.text.includes('*') && off.text.includes('journal of educational computing'), off.text);
@@ -264,6 +264,38 @@ const check = async (name, fn) => { try { await fn(); console.log('ok  -', name)
       return document.getElementById('bibliography-input').value;
     });
     assert.ok(r.includes('*A book*'), r);
+  });
+
+  await check('bibliography text box stays free of asterisks and italics survive a second Format', async () => {
+    const r = await page.evaluate(() => {
+      document.getElementById('rebuild-toggle').checked = true;
+      document.getElementById('bibliography-input').value = 'Doe, J. (2020). Sleep and memory. Journal of Sleep Research, 12(3), 45-67.';
+      formatBibliography();
+      const first = { text: document.getElementById('bibliography-input').value, html: document.getElementById('bibliography-preview-list').innerHTML };
+      formatBibliography();
+      return { first, secondHtml: document.getElementById('bibliography-preview-list').innerHTML, secondText: document.getElementById('bibliography-input').value };
+    });
+    assert.ok(!r.first.text.includes('*'), r.first.text);
+    assert.ok(r.first.html.includes('<i>Journal of Sleep Research</i>') && r.secondHtml === r.first.html, r.secondHtml);
+    assert.strictEqual(r.secondText, r.first.text);
+  });
+  await check('sentence-case fix still works on the clean text box', async () => {
+    const r = await page.evaluate(() => {
+      document.getElementById('bibliography-input').value = 'Doe, J. (2020). The Effects Of Sleep On Memory In Adults. Journal of Sleep Research, 12(3), 45-67.';
+      formatBibliography();
+      fixSentenceCaseFor(bibMarkedLookup.values().next().value || document.getElementById('bibliography-input').value);
+      return document.getElementById('bibliography-input').value;
+    });
+    assert.ok(r.includes('The effects of sleep on memory in adults.'), r);
+  });
+  await check('table preview gives the stub column room (5 columns are not squeezed)', async () => {
+    const r = await page.evaluate(() => {
+      loadTemplate('correlation');
+      const t = document.getElementById('prev-table');
+      return { fixed: t.classList.contains('preview-fixed'), cols: gridData[0].length };
+    });
+    assert.strictEqual(r.cols, 5);
+    assert.strictEqual(r.fixed, false);
   });
 
   // ── Accessibility basics ─────────────────────────────────────────────────

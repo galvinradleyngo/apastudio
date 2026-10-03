@@ -264,8 +264,9 @@ function applyPreviewTableSizing(prevTable) {
     const container = document.getElementById('table-export-container');
     const availableWidth = container ? container.clientWidth : 0;
 
-    const needsCompact = columnCount >= 8 || (availableWidth && columnCount * 120 > availableWidth);
-    const needsTight = columnCount >= 11 || (availableWidth && columnCount * 92 > availableWidth);
+    // A readable stub column plus about 80px (compact) or 60px (tight) per data column.
+    const needsCompact = columnCount >= 8 || (availableWidth && 160 + (columnCount - 1) * 80 > availableWidth);
+    const needsTight = columnCount >= 11 || (availableWidth && 130 + (columnCount - 1) * 60 > availableWidth);
 
     if (needsCompact) {
         prevTable.classList.add('preview-fixed', 'preview-compact');
