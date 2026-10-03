@@ -38,7 +38,24 @@ A modern, browser-based academic formatting workspace for researchers, educators
 ## More features
 - **Source types:** journal article, book (edition, translator), book chapter (editors, pages), webpage (optional retrieval date), news/blog article, video, podcast episode, social post, thesis, dataset, software, report, religious/foundational document.
 - **Bibliography tools:** en-dash page ranges, automatic a/b year suffixes for same-author same-year works, one-click sentence-case fixes for flagged titles, BibTeX/RIS import, and an in-text citation vs reference-list check.
-- **Export:** the bibliography and single citations download as real `.docx` files (Times New Roman, double-spaced, hanging indent, italics). Tables still export as Word-compatible `.doc`.
+- **Export:** the bibliography, single citations and tables all download as real `.docx` files (Times New Roman; hanging indents and italics for references; APA rules-only borders and notes for tables).
 - **Accessibility:** labelled form fields, live regions for status messages, visible keyboard focus.
 - `apa_table_formatter.html` now just redirects to `index.html`.
 - Tests: `node tests/features.test.js`.
+
+## Rebuild from parsed parts
+Format Bibliography can rebuild each pasted reference from its parsed fields (authors, date, title, source, volume/issue/pages, DOI/URL), so punctuation, initials, en dashes and italics all come from one generator. It is on by default (checkbox in the Bibliography Formatter).
+- Italics are written as `*asterisks*` in the text box and shown as real italics in the preview, copy and export. You can type your own to mark italics.
+- Capitalization you typed is never rewritten by the rebuild (use the "Fix it" button for sentence case).
+- If an entry can't be read with confidence, or rebuilding would add, drop or change any word, it is left exactly as typed and the corrections list says why.
+
+## Project layout
+No build step; `index.html` loads classic scripts in this order:
+- `js/reference-engine.js`: pure text logic (formatting, italics, citation generator, BibTeX/RIS). No DOM.
+- `js/reference-parser.js`: reference parser and rebuild. No DOM.
+- `js/web-metadata.js`: URL and page-metadata helpers.
+- `js/app.js`, `js/table-formatter.js`, `js/bibliography-ui.js`, `js/citation-ui.js`, `js/export.js`, `js/main.js`: UI for each tool, exports, and startup.
+- `worker/`: optional Cloudflare Worker for fetching pages. `tests/`: see below.
+
+## Tests
+`npm test` runs everything: `tests/engine.test.js` needs only Node; the browser tests need Playwright (`npm install`, then a Chromium build).

@@ -100,6 +100,21 @@ const check = async (name, fn) => { try { await fn(); console.log('ok  -', name)
     assert.strictEqual(fixed, 'Doe, J. (2020). The effects of sleep on memory in adults. Journal, 3(2), 4.');
   });
 
+  await check('rebuild toggle: on standardizes entries, off leaves them as typed', async () => {
+    const run = on => page.evaluate(flag => {
+      document.getElementById('rebuild-toggle').checked = flag;
+      document.getElementById('bibliography-input').value = 'Smith, J.A. & Lee, R.T. (2021). Learning analytics in classrooms. journal of educational computing, 35(2), 145-162.';
+      formatBibliography();
+      return { text: document.getElementById('bibliography-input').value, html: document.getElementById('bibliography-preview-list').innerHTML };
+    }, on);
+    const on = await run(true);
+    assert.ok(on.text.includes('*Journal of Educational Computing*, *35*(2), 145–162.'), on.text);
+    assert.ok(on.html.includes('<i>Journal of Educational Computing</i>, <i>35</i>(2)'), on.html);
+    const off = await run(false);
+    assert.ok(!off.text.includes('*') && off.text.includes('journal of educational computing'), off.text);
+    await page.evaluate(() => { document.getElementById('rebuild-toggle').checked = true; });
+  });
+
   // ── In-text citation cross-check ─────────────────────────────────────────
   await check('cross-check finds missing and uncited references', async () => {
     const html = await page.evaluate(() => {
@@ -167,6 +182,34 @@ const check = async (name, fn) => { try { await fn(); console.log('ok  -', name)
       } else break;
     }
     assert.deepStrictEqual(names, ['[Content_Types].xml', '_rels/.rels', 'word/document.xml']);
+  });
+
+  await check('docx export: APA table with rules, notes and italic p', async () => {
+    await page.evaluate(() => {
+      loadTemplate('correlation');
+      document.getElementById('table-number').value = '2';
+      document.getElementById('note-general').value = 'N = 250.';
+      document.getElementById('note-prob').value = '* p < .05.';
+      updatePreview();
+    });
+    const [download] = await Promise.all([page.waitForEvent('download'), page.evaluate(() => exportToWord())]);
+    const file = path.join(os.tmpdir(), 'apa-table-test.docx');
+    await download.saveAs(file);
+    assert.strictEqual(download.suggestedFilename(), 'APA_Table_2.docx');
+    const buf = fs.readFileSync(file);
+    let xml = '';
+    for (let i = 0; i < buf.length - 4; ) {
+      if (buf.readUInt32LE(i) !== 0x04034b50) break;
+      const size = buf.readUInt32LE(i + 18), nlen = buf.readUInt16LE(i + 26), elen = buf.readUInt16LE(i + 28);
+      if (buf.slice(i + 30, i + 30 + nlen).toString() === 'word/document.xml') xml = buf.slice(i + 30 + nlen + elen, i + 30 + nlen + elen + size).toString();
+      i += 30 + nlen + elen + size;
+    }
+    fs.writeFileSync(path.join(os.tmpdir(), 'apa-table-document.xml'), xml);
+    assert.ok(xml.includes('Table 2') && xml.includes('<w:tbl>') && xml.includes('w:tblGrid'), 'table structure');
+    assert.ok(/<w:top [^>]*w:sz="12"/.test(xml) && /<w:bottom [^>]*w:sz="12"/.test(xml), 'top and bottom rules');
+    assert.ok(/<w:tcBorders><w:bottom [^>]*w:sz="8"/.test(xml), 'rule under the heading row');
+    assert.ok(!/<w:(left|right|insideV)\b[^>]*w:val="single"/.test(xml), 'no vertical lines');
+    assert.ok(xml.includes('N = 250.') && /<w:i\/>[^]*?<w:t[^>]*>p<\/w:t>/.test(xml), 'notes with italic p');
   });
 
   // ── Accessibility basics ─────────────────────────────────────────────────
