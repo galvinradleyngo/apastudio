@@ -174,14 +174,13 @@ const check = async (name, fn) => { try { await fn(); console.log('ok  -', name)
         names.push(buf.slice(i + 30, i + 30 + nlen).toString());
         if (names[names.length - 1] === 'word/document.xml') {
           const xml = buf.slice(i + 30 + nlen + elen, i + 30 + nlen + elen + size).toString();
-          assert.ok(/<w:spacing[^>]*\/><w:jc/.test(xml) && !/<w:jc[^>]*\/><w:spacing/.test(xml), 'pPr child order');
-          fs.writeFileSync(path.join(os.tmpdir(), 'apa-test-document.xml'), xml);
-          assert.ok(xml.includes('<w:i/>') && xml.includes('Journal of Sleep Research') && xml.includes('w:hanging="720"') && xml.includes('Sleep &amp; memory'), xml);
+                    fs.writeFileSync(path.join(os.tmpdir(), 'apa-test-document.xml'), xml);
+          assert.ok(xml.includes('<w:i/>') && xml.includes('Journal of Sleep Research') && xml.includes('w:pStyle w:val="Reference"') && xml.includes('w:pStyle w:val="Heading1"') && !xml.includes('w:hanging') && xml.includes('Sleep &amp; memory'), xml);
         }
         i += 30 + nlen + elen + size;
       } else break;
     }
-    assert.deepStrictEqual(names, ['[Content_Types].xml', '_rels/.rels', 'word/document.xml']);
+    assert.deepStrictEqual(names, ['[Content_Types].xml', '_rels/.rels', 'word/document.xml', 'word/_rels/document.xml.rels', 'word/styles.xml']);
   });
 
   await check('docx export: APA table with rules, notes and italic p', async () => {

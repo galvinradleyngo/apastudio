@@ -38,7 +38,7 @@ A modern, browser-based academic formatting workspace for researchers, educators
 ## More features
 - **Source types:** journal article, book (edition, translator), book chapter (editors, pages), webpage (optional retrieval date), news/blog article, video, podcast episode, social post, thesis, dataset, software, report, religious/foundational document.
 - **Bibliography tools:** en-dash page ranges, automatic a/b year suffixes for same-author same-year works, one-click sentence-case fixes for flagged titles, BibTeX/RIS import, and an in-text citation vs reference-list check.
-- **Export:** the bibliography, single citations and tables all download as real `.docx` files (Times New Roman; hanging indents and italics for references; APA rules-only borders and notes for tables).
+- **Export:** the bibliography, single citations and tables all download as real `.docx` files (Times New Roman; references use real Word styles (Heading 1 for "References" and a "Reference" paragraph style with the hanging indent) so you can restyle the whole list in Word, plus italics; APA rules-only borders and notes for tables).
 - **Accessibility:** labelled form fields, live regions for status messages, visible keyboard focus.
 - `apa_table_formatter.html` now just redirects to `index.html`.
 - Tests: `node tests/features.test.js`.
@@ -48,6 +48,7 @@ Format Bibliography can rebuild each pasted reference from its parsed fields (au
 - Italics are written as `*asterisks*` in the text box and shown as real italics in the preview, copy and export. You can type your own to mark italics.
 - Capitalization you typed is never rewritten by the rebuild (use the "Fix it" button for sentence case).
 - If an entry can't be read with confidence, or rebuilding would add, drop or change any word, it is left exactly as typed and the corrections list says why.
+- Handled: name suffixes (Jr., Sr., III), hyphenated initials (J.-P.), long author lists with an ellipsis, and news/blog articles recognized from the URL (plain title, italic publication). For other sites, mark the publication with `*asterisks*`.
 
 ## Project layout
 No build step; `index.html` loads classic scripts in this order:
