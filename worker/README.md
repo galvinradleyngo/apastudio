@@ -11,6 +11,4 @@ the Wayback Machine, which are less reliable.
    `<script>window.APA_METADATA_PROXY = 'https://YOUR-WORKER.workers.dev/';</script>`
    just above the main `<script>` block.
 
-The Worker only returns HTML pages (max ~1.5 MB), refuses private/local addresses, and sends
-permissive CORS headers. Restrict `Access-Control-Allow-Origin` to your own domain if you host
-the app publicly.
+The Worker only returns HTML pages (max ~1.5 MB), refuses private/local addresses, and only allows browser requests from the origins listed in `ALLOWED_ORIGINS` at the top of `metadata-proxy.js`.
