@@ -2722,7 +2722,30 @@
             }
         }
 
+        // Records why page fetches failed so the UI can explain it instead of just saying "blocked".
+        let lastFetchFailures = [];
+
+        function describeFetchFailure() {
+            const reasons = lastFetchFailures.map(f => f.message || '');
+            const status = reasons.map(r => (r.match(/HTTP (\d{3})/) || [])[1]).filter(Boolean);
+            if (status.some(c => ['401', '403', '429', '451'].includes(c)) || reasons.some(r => /blocked-page/.test(r))) {
+                return 'The site refused automated access (it blocks bots and proxies).';
+            }
+            if (status.includes('404') || status.includes('410')) return 'The page was not found (HTTP 404). Check the link.';
+            if (status.some(c => c.startsWith('5'))) return 'The site or the proxy returned a server error.';
+            if (reasons.some(r => /abort|timed? ?out/i.test(r))) return 'The site took too long to respond.';
+            if (reasons.some(r => /No HTML/.test(r))) return 'The link does not point to a normal web page (it may be a file or app).';
+            return 'The page could not be reached from the browser (network or proxy blocked).';
+        }
+
+        function looksLikeBlockPage(html) {
+            const title = ((html.match(/<title[^>]*>([\s\S]*?)<\/title>/i) || [])[1] || '').trim();
+            return /^(access denied|forbidden|403|just a moment|attention required|are you a robot|robot check|blocked|error|request blocked|pardon our interruption)/i.test(title)
+                || /(captcha|cf-browser-verification|enable javascript and cookies to continue)/i.test(html.slice(0, 4000)) && html.length < 8000;
+        }
+
         async function fetchPageHtml(url) {
+            lastFetchFailures = [];
             const attempt = async (endpoint, unwrap) => {
                 const controller = new AbortController();
                 const timeoutId = setTimeout(() => controller.abort(), 7000);
@@ -2731,7 +2754,11 @@
                     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
                     const html = await unwrap(resp);
                     if (!html || !/<(html|head|meta|title)/i.test(html)) throw new Error('No HTML');
+                    if (looksLikeBlockPage(html)) throw new Error('blocked-page');
                     return html;
+                } catch (err) {
+                    lastFetchFailures.push(err);
+                    throw err;
                 } finally {
                     clearTimeout(timeoutId);
                 }
@@ -2818,8 +2845,12 @@
             document.getElementById('cite-type').value = type;
             handleCiteTypeChange();
 
-            const rawTitle = (meta && meta.title) || titleCandidate || (domainName ? `${domainName} home page` : 'Webpage');
-            const authors = (meta && meta.author) || (institutional && !isJournalPage ? siteName : '');
+            const isHomePage = parsedUrl.pathname === '/' || parsedUrl.pathname === '';
+            const rawTitle = (meta && meta.title) || titleCandidate || (isHomePage && siteName ? siteName : (domainName ? `${domainName} home page` : 'Webpage'));
+            const orgName = knownOrganizationName(parsedUrl.hostname);
+            const orgAuthor = !isJournalPage && institutional ? (orgName || siteName) : '';
+            const authors = (meta && meta.author) || orgAuthor;
+            const authorIsOrgGuess = !(meta && meta.author) && !!orgAuthor;
             const year = (meta && meta.year) || dateParts.year;
             const monthDay = (meta && meta.year) ? meta.monthDay : dateParts.monthDay;
 
@@ -2827,7 +2858,8 @@
             document.getElementById('cite-authors').value = authors;
             document.getElementById('cite-year').value = year;
             document.getElementById('cite-monthday').value = monthDay;
-            document.getElementById('cite-source').value = isJournalPage ? toTitleCase(meta.journal) : siteName;
+            const sourceDuplicatesAuthor = authorIsOrgGuess && authors.toLowerCase().startsWith(siteName.toLowerCase());
+            document.getElementById('cite-source').value = isJournalPage ? toTitleCase(meta.journal) : (sourceDuplicatesAuthor ? '' : siteName);
             document.getElementById('cite-volume').value = isJournalPage ? meta.volume : '';
             document.getElementById('cite-issue').value = isJournalPage ? meta.issue : '';
             document.getElementById('cite-pages').value = isJournalPage ? meta.pages : '';
@@ -2851,7 +2883,7 @@
                 setCitationStatus(missing.length ? 'warning' : 'success', 'Webpage Metadata Extracted', note);
                 showToast('Web citation generated!');
             } else {
-                setCitationStatus('warning', 'URL Analyzed', 'The page could not be read (blocked or offline), so the title and site came from the link itself. Please review the author, date and title fields.');
+                setCitationStatus('warning', 'URL Analyzed', `${describeFetchFailure()} The title and site came from the link itself${orgAuthor ? ' and the author is the organization behind the site' : ''}. Please review the author, date and title fields.`);
                 showToast('Citation template generated from link.');
             }
         }
@@ -2876,9 +2908,26 @@
             updateCitationPreview();
         }
 
+        // Legal/author names APA expects for well-known organization sites (site name is shown separately).
+        const KNOWN_ORGANIZATIONS = {
+            'apple.com': 'Apple Inc.',
+            'microsoft.com': 'Microsoft Corporation',
+            'google.com': 'Google LLC',
+            'amazon.com': 'Amazon.com, Inc.',
+            'ibm.com': 'IBM Corporation',
+            'nasa.gov': 'National Aeronautics and Space Administration',
+            'unicef.org': 'UNICEF'
+        };
+
+        function knownOrganizationName(hostname) {
+            const host = hostname.replace(/^www\./i, '').toLowerCase();
+            const key = Object.keys(KNOWN_ORGANIZATIONS).find(k => host === k || host.endsWith('.' + k));
+            return key ? KNOWN_ORGANIZATIONS[key] : '';
+        }
+
         function isKnownInstitutionalSite(hostname) {
             const host = hostname.replace(/^www\./i, '').toLowerCase();
-            return ['apple.com', 'who.int', 'cdc.gov', 'nih.gov', 'apa.org', 'vatican.va', 'un.org', 'worldbank.org'].includes(host);
+            return ['apple.com', 'microsoft.com', 'google.com', 'amazon.com', 'ibm.com', 'who.int', 'cdc.gov', 'nih.gov', 'apa.org', 'vatican.va', 'un.org', 'worldbank.org'].includes(host);
         }
 
         function mapDomainToSiteName(hostname) {
@@ -2904,6 +2953,11 @@
                 'reuters.com': 'Reuters',
                 'apnews.com': 'Associated Press',
                 'statnews.com': 'STAT News',
+                'apple.com': 'Apple',
+                'microsoft.com': 'Microsoft',
+                'google.com': 'Google',
+                'amazon.com': 'Amazon',
+                'ibm.com': 'IBM',
                 'cnn.com': 'CNN',
                 'npr.org': 'NPR',
                 'forbes.com': 'Forbes',
@@ -3086,7 +3140,7 @@
         }
 
         function isCorporateAuthor(name) {
-            return /\b(organization|department|ministry|institute|association|agency|commission|committee|university|college|corporation|center|centre|foundation|group|council|team|society|office|bureau|press|gov)\b/i.test(name);
+            return /\b(organization|department|ministry|institute|association|agency|commission|committee|university|college|corporation|center|centre|foundation|group|council|team|society|office|bureau|press|gov|inc|llc|ltd|plc|gmbh|corp|company|unicef|unesco)\b/i.test(name);
         }
 
         function parseAuthorsInput(raw) {

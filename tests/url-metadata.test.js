@@ -70,6 +70,32 @@ const check = (name, fn) => { try { fn(); console.log('ok  -', name); } catch (e
     'Doe, J. (2021). Sleep and memory. *Journal of Sleep Research*, *12*(3), 45–67. https://doi.org/10.1/x');
   console.log('ok  - generator output for article, webpage, video, journal');
 
+  // End to end with every network route blocked (simulates a site that refuses bots).
+  const blocked = await browser.newPage();
+  await blocked.route(/^(?!file:)/, r => r.request().url().includes('cdn') || r.request().url().includes('unpkg') || r.request().url().includes('tailwind') ? r.abort() : r.fulfill({ status: 403, contentType: 'text/html', body: '<html><head><title>Access Denied</title></head></html>' }));
+  await blocked.goto('file://' + path.resolve(__dirname, '..', 'index.html'));
+  await blocked.waitForFunction(() => typeof resolveGeneralWebUrl === 'function');
+  const apple = await blocked.evaluate(async () => {
+    window.lucide = { createIcons() {} };
+    await resolveGeneralWebUrl('https://www.apple.com/');
+    const v = id => document.getElementById(id).value;
+    return { type: v('cite-type'), title: v('cite-title'), authors: v('cite-authors'), source: v('cite-source'), year: v('cite-year'),
+             status: document.getElementById('citation-status-desc').innerText, ref: document.getElementById('prev-citation-reference').innerText };
+  });
+  check('blocked apple.com: organization author, home-page title, no duplicate site', () => {
+    assert.strictEqual(apple.authors, 'Apple Inc.'); assert.strictEqual(apple.title, 'Apple'); assert.strictEqual(apple.source, ''); assert.strictEqual(apple.year, '');
+    assert.strictEqual(apple.ref, 'Apple Inc. (n.d.). Apple. https://www.apple.com/');
+  });
+  check('blocked apple.com: status explains the site refused access', () => assert.ok(/refused automated access/.test(apple.status), apple.status));
+  const reasons = await blocked.evaluate(() => {
+    lastFetchFailures = [{ message: 'HTTP 404' }]; const a = describeFetchFailure();
+    lastFetchFailures = [{ message: 'The user aborted a request.' }]; const b = describeFetchFailure();
+    return [a, b, looksLikeBlockPage('<html><head><title>Access Denied</title></head></html>'), looksLikeBlockPage('<html><head><title>Real article</title></head></html>')];
+  });
+  check('failure reasons and block-page detection', () => {
+    assert.ok(/not found/.test(reasons[0])); assert.ok(/too long/.test(reasons[1])); assert.strictEqual(reasons[2], true); assert.strictEqual(reasons[3], false);
+  });
+
   await browser.close();
   if (failures) { console.log(`\n${failures} failure(s)`); process.exit(1); }
   console.log('\nall passed');
