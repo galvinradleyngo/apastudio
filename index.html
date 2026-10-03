@@ -619,7 +619,8 @@
                                         <select id="cite-type" onchange="handleCiteTypeChange()" class="w-full border border-slate-200 rounded-xl p-3 text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all bg-white">
                                             <option value="journal">Journal Article</option>
                                             <option value="book">Book / Monograph</option>
-                                            <option value="webpage">Webpage / Online Article</option>
+                                            <option value="webpage">Webpage / Website Page</option>
+                                            <option value="article">News / Magazine / Blog Article</option>
                                             <option value="report">Report / Working Paper</option>
                                             <option value="religious">Religious / Foundational Document</option>
                                         </select>
@@ -1337,6 +1338,109 @@
             return text.replace(/^([a-z])\s/i, '<sup>$1</sup> ');
         }
 
+        // ── Reference italics engine ───────────────────────────────────────────
+        // Italics inside a reference string are carried as *asterisk* markers.
+        // Generated citations always carry them; pasted references without markers
+        // get them inferred from APA structure by inferItalicMarkers().
+        function escapeHtml(text) {
+            return String(text).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        }
+
+        function stripItalicMarkers(text) {
+            return String(text || '').replace(/\*/g, '');
+        }
+
+        function markersToHtml(marked) {
+            return escapeHtml(marked).replace(/\*([^*]+)\*/g, '<i>$1</i>');
+        }
+
+        const REFERENCE_ABBREVIATIONS = new Set(['et al', 'ed', 'eds', 'vol', 'no', 'pp', 'p', 'jr', 'sr', 'dr', 'st', 'inc', 'ltd', 'co', 'corp', 'rev', 'trans', 'u.s', 'e.g', 'i.e', 'vs', 'suppl', 'ch']);
+
+        // Index just past the first sentence-ending period that is not an initial or abbreviation.
+        function findFirstSentenceEnd(text) {
+            const re = /[.?!]/g;
+            let m;
+            while ((m = re.exec(text)) !== null) {
+                const idx = m.index;
+                const after = text.slice(idx + 1);
+                if (after && !/^\s+[A-Z0-9“"'\[(¿¡]/.test(after)) continue;
+                if (!after) return text.length;
+                if (m[0] === '.') {
+                    const word = (text.slice(0, idx).match(/([A-Za-z.]+)$/) || ['', ''])[1];
+                    if (/^[A-Z]$/.test(word) || /(^|\.)[A-Z]$/.test(word)) continue;
+                    if (REFERENCE_ABBREVIATIONS.has(word.toLowerCase())) continue;
+                }
+                return idx + 1;
+            }
+            return text.length;
+        }
+
+        const NON_ITALIC_TITLE_TAIL = /^\s*(?:\[[^\]]*\]|\((?:\d+(?:st|nd|rd|th)\s+ed\.|rev\.\s*ed\.|[^)]*(?:\bed\.|\bNo\.|\bVol\.|\bpp?\.|Report)[^)]*)\))/i;
+
+        // Wraps the work title in markers, leaving trailing [descriptors] and (edition) outside.
+        function italicizeTitleSentence(sentence) {
+            let core = sentence;
+            let tail = '';
+            for (;;) {
+                const m = core.match(/\s*(\[[^\]]*\]|\([^()]*\))\.?$/);
+                if (!m || !NON_ITALIC_TITLE_TAIL.test(m[0])) break;
+                tail = core.slice(core.length - m[0].length) + tail;
+                core = core.slice(0, core.length - m[0].length);
+            }
+            let end = '';
+            if (/\.$/.test(core) && !tail) { core = core.slice(0, -1); end = '.'; }
+            if (!core.trim()) return sentence;
+            return `*${core}*${tail}${end}`;
+        }
+
+        function inferItalicMarkers(reference) {
+            const ref = String(reference || '').trim();
+            if (!ref || ref.includes('*')) return ref;
+
+            const dateMatch = ref.match(/^(.*?\((?:\d{4}[a-z]?|n\.d\.)(?:,\s*[A-Za-z]+(?:\s+\d{1,2}(?:[–-]\d{1,2})?)?)?\)\.)\s+(.+)$/);
+            if (!dateMatch) return ref;
+
+            const head = dateMatch[1];
+            let rest = dateMatch[2];
+
+            let locator = '';
+            const locMatch = rest.match(/(?:\s+(?:https?:\/\/\S+|doi:\s*\S+|10\.\d{4,9}\/\S+))+$/i);
+            if (locMatch) {
+                locator = locMatch[0];
+                rest = rest.slice(0, rest.length - locator.length);
+            }
+            if (!rest) return ref;
+
+            // Edited-book chapter: Chapter title. In A. Editor (Ed.), *Book title* (pp. 1–10). Publisher.
+            const chapter = rest.match(/^(.*?\bIn\s+.+?\(Eds?\.\),?\s+)(.+?)((?:\s*\((?:pp?\.|\d+(?:st|nd|rd|th)\s+ed\.|[^)]*Vol\.)[^)]*\))*\.)(.*)$/);
+            if (chapter) {
+                return `${head} ${chapter[1]}*${chapter[2].trim()}*${chapter[3]}${chapter[4]}${locator}`;
+            }
+
+            const titleEnd = findFirstSentenceEnd(rest);
+            const titleSentence = rest.slice(0, titleEnd);
+            const remainder = rest.slice(titleEnd);
+
+            // Periodical: Title. *Journal*, *12*(3), 45–67.
+            const periodical = remainder.match(/^(\s+)([^,]+(?:,\s*[^,\d][^,]*)*?),\s*(\d+)(\([^)]+\))?((?:,\s*[^,]+?)?)\.?\s*$/);
+            if (periodical && remainder.trim() && !/^\s*(?:https?:)/i.test(remainder)) {
+                const tail = remainder.trim().endsWith('.') ? '.' : '';
+                const journalName = periodical[2].trim();
+                if (journalName.length > 1 && !/\b(?:Inc|Press|Publishers?|Books|Ltd)\b/i.test(journalName)) {
+                    return `${head} ${titleSentence}${periodical[1]}*${journalName}*, *${periodical[3]}*${periodical[4] || ''}${periodical[5] || ''}${tail}${locator}`;
+                }
+            }
+
+            // Periodical without volume: Title. *Newspaper*, p. A1 handled as plain work below.
+            // Standalone work (book, report, webpage, dataset…): *Title*. Publisher.
+            return `${head} ${italicizeTitleSentence(titleSentence)}${remainder}${locator}`;
+        }
+
+        function referenceToHtml(reference) {
+            return markersToHtml(inferItalicMarkers(reference));
+        }
+        // ── End reference italics engine ───────────────────────────────────────
+
         function normalizeReferenceEntry(entry) {
             return entry
                 .replace(/^\s*(?:\d+[\.)]\s+|[-*•]\s+)/, '')
@@ -1345,7 +1449,7 @@
         }
 
         function looksLikeNewReference(line) {
-            const candidate = normalizeReferenceEntry(line);
+            const candidate = stripItalicMarkers(normalizeReferenceEntry(line));
             return /^[A-Z][A-Za-z'\-]+,\s*(?:[A-Z]\.|\()/i.test(candidate);
         }
 
@@ -1398,7 +1502,7 @@
         }
 
         function extractFirstAuthorSurname(reference) {
-            const cleaned = normalizeReferenceEntry(reference);
+            const cleaned = stripItalicMarkers(normalizeReferenceEntry(reference));
             const surnameMatch = cleaned.match(/^([A-Za-z'\-]+)/);
             return surnameMatch ? surnameMatch[1].toLowerCase() : cleaned.toLowerCase();
         }
@@ -1656,7 +1760,7 @@
 
         function analyzeReferenceIssues(reference) {
             const issues = [];
-            const cleaned = normalizeReferenceEntry(reference);
+            const cleaned = stripItalicMarkers(normalizeReferenceEntry(reference));
 
             if (!/^[A-Z][A-Za-z'\-]+,\s*[A-Z]/.test(cleaned)) {
                 issues.push('Author name may not follow APA format (Surname, Initials).');
@@ -1773,7 +1877,7 @@
             entries.forEach(entry => {
                 const row = document.createElement('p');
                 row.className = 'apa-reference-item';
-                row.innerText = entry;
+                row.innerHTML = referenceToHtml(entry);
                 list.appendChild(row);
             });
         }
@@ -2001,6 +2105,7 @@
 
         // ── Citation Generator Engine ──────────────────────────────────────────
         let currentCitationPlain = '';
+        let currentCitationMarked = '';
 
         const sampleCitations = {
             nature: {
@@ -2411,10 +2516,123 @@
             updateCitationPreview();
         }
 
+        const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+        function parseDateParts(str) {
+            const value = (str || '').trim();
+            if (!value) return { year: '', monthDay: '' };
+            const iso = value.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
+            if (iso && +iso[2] >= 1 && +iso[2] <= 12) {
+                return { year: iso[1], monthDay: `${MONTH_NAMES[+iso[2] - 1]} ${+iso[3]}` };
+            }
+            if (/^\d{4}$/.test(value)) return { year: value, monthDay: '' };
+            const d = new Date(value);
+            if (!isNaN(d.getTime()) && d.getFullYear() > 1800) {
+                return { year: String(d.getFullYear()), monthDay: `${MONTH_NAMES[d.getMonth()]} ${d.getDate()}` };
+            }
+            const yearOnly = value.match(/\b(19\d{2}|20\d{2})\b/);
+            return { year: yearOnly ? yearOnly[1] : '', monthDay: '' };
+        }
+
+        function cleanAuthorName(name) {
+            const n = (name || '').replace(/\s+/g, ' ').trim();
+            if (!n || /^@/.test(n) || /^https?:\/\//i.test(n) || n.length > 80) return '';
+            if (/^(staff|admin|administrator|editor|editors|the editors|editorial team|team|unknown|guest)$/i.test(n)) return '';
+            return n.replace(/^by\s+/i, '');
+        }
+
+        function registrableLabel(hostname) {
+            const parts = hostname.replace(/^www\./i, '').toLowerCase().split('.');
+            if (parts.length <= 2) return parts[0];
+            const tld = parts[parts.length - 1];
+            const sld = parts[parts.length - 2];
+            return (tld.length === 2 && ['co', 'com', 'org', 'gov', 'edu', 'ac', 'net'].includes(sld)) ? parts[parts.length - 3] : sld;
+        }
+
+        function isInstitutionalHost(hostname) {
+            return isKnownInstitutionalSite(hostname) || /\.(gov|edu|int|mil)(\.[a-z]{2})?$/i.test(hostname);
+        }
+
+        const NEWS_HOSTS = ['nytimes.com', 'washingtonpost.com', 'bbc.com', 'bbc.co.uk', 'theguardian.com', 'theverge.com', 'wired.com', 'reuters.com', 'apnews.com', 'statnews.com', 'cnn.com', 'npr.org', 'forbes.com', 'bloomberg.com', 'theatlantic.com', 'newyorker.com', 'time.com', 'usatoday.com', 'latimes.com', 'aljazeera.com', 'vox.com', 'slate.com', 'medium.com'];
+
+        function isNewsHost(hostname) {
+            const host = hostname.replace(/^www\./i, '').toLowerCase();
+            return NEWS_HOSTS.some(h => host === h || host.endsWith('.' + h));
+        }
+
+        function cleanUrlForCitation(url) {
+            const copy = new URL(url.href);
+            [...copy.searchParams.keys()].forEach(key => {
+                if (/^(utm_.*|fbclid|gclid|mc_[a-z]+|igshid|ref|ref_src|cmpid|ocid|source|campaign)$/i.test(key)) copy.searchParams.delete(key);
+            });
+            copy.hash = '';
+            return copy.href;
+        }
+
+        function stripSiteFromTitle(title, siteName, hostname) {
+            const t = (title || '').replace(/\s+/g, ' ').trim();
+            const parts = t.split(/\s+[|–—·»]\s+|\s+-\s+/);
+            if (parts.length < 2) return t;
+            const norm = s => s.toLowerCase().replace(/[^a-z0-9]/g, '');
+            const siteKeys = [siteName, registrableLabel(hostname || '')].filter(Boolean).map(norm);
+            const kept = parts.filter(p => {
+                const k = norm(p);
+                return !siteKeys.some(s => s && (k === s || (k.length > 2 && (s.includes(k) || k.includes(s)) && p.split(' ').length <= 4)));
+            });
+            if (kept.length && kept.length < parts.length) return kept.join(' - ');
+            const last = parts[parts.length - 1];
+            if (parts.length === 2 && last.split(' ').length <= 3 && parts[0].split(' ').length >= 3) return parts[0];
+            return t;
+        }
+
+        function collectJsonLd(doc) {
+            const nodes = [];
+            doc.querySelectorAll('script[type="application/ld+json"]').forEach(script => {
+                try {
+                    const walk = v => {
+                        if (Array.isArray(v)) return v.forEach(walk);
+                        if (v && typeof v === 'object') {
+                            nodes.push(v);
+                            if (v['@graph']) walk(v['@graph']);
+                        }
+                    };
+                    walk(JSON.parse(script.textContent));
+                } catch (e) { /* ignore malformed JSON-LD */ }
+            });
+            return nodes;
+        }
+
+        async function fetchPageHtml(url) {
+            const attempt = async (endpoint, unwrap) => {
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 7000);
+                try {
+                    const resp = await fetch(endpoint, { signal: controller.signal });
+                    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+                    const html = await unwrap(resp);
+                    if (!html || !/<(html|head|meta|title)/i.test(html)) throw new Error('No HTML');
+                    return html;
+                } finally {
+                    clearTimeout(timeoutId);
+                }
+            };
+            const enc = encodeURIComponent(url);
+            try {
+                return await Promise.any([
+                    attempt(url, r => r.text()),
+                    attempt(`https://api.allorigins.win/get?url=${enc}`, async r => (await r.json()).contents),
+                    attempt(`https://corsproxy.io/?url=${enc}`, r => r.text()),
+                    attempt(`https://api.codetabs.com/v1/proxy?quest=${enc}`, r => r.text())
+                ]);
+            } catch (e) {
+                return null;
+            }
+        }
+
         async function resolveGeneralWebUrl(urlStr) {
             let parsedUrl;
             try {
-                parsedUrl = new URL(urlStr.startsWith('http') ? urlStr : `https://${urlStr}`);
+                parsedUrl = new URL(/^https?:\/\//i.test(urlStr) ? urlStr : `https://${urlStr}`);
             } catch (e) {
                 setCitationStatus('error', 'Invalid Web Address', 'Please check that the URL is formatted correctly (e.g. https://example.com/article).');
                 return;
@@ -2428,73 +2646,71 @@
                 return;
             }
 
-            let titleCandidate = deriveTitleFromUrlPath(parsedUrl.pathname);
-            let yearCandidate = '';
-            let monthDayCandidate = '';
-
-            const dateMatch = parsedUrl.pathname.match(/\/(20\d{2}|19\d{2})\/(\d{1,2})\/(\d{1,2})/);
-            if (dateMatch) {
-                yearCandidate = dateMatch[1];
-                const monthNum = parseInt(dateMatch[2], 10);
-                const dayNum = parseInt(dateMatch[3], 10);
-                const monthNames = ['', 'January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-                if (monthNames[monthNum]) {
-                    monthDayCandidate = `${monthNames[monthNum]} ${dayNum}`;
-                }
+            const titleCandidate = deriveTitleFromUrlPath(parsedUrl.pathname);
+            let dateParts = { year: '', monthDay: '' };
+            const pathDate = parsedUrl.pathname.match(/\/((?:19|20)\d{2})[\/-](\d{1,2})[\/-](\d{1,2})(?=\/|$|-)/);
+            if (pathDate) {
+                dateParts = parseDateParts(`${pathDate[1]}-${pathDate[2]}-${pathDate[3]}`);
             } else {
-                const yearOnlyMatch = parsedUrl.pathname.match(/\/(20\d{2}|19\d{2})\b/);
-                if (yearOnlyMatch) yearCandidate = yearOnlyMatch[1];
+                const yearOnly = parsedUrl.pathname.match(/\/((?:19|20)\d{2})(?=\/|$)/);
+                if (yearOnly) dateParts.year = yearOnly[1];
             }
 
-            let fetchedMeta = null;
-            try {
-                const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 4000);
-                const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(parsedUrl.href)}`;
-                const resp = await fetch(proxyUrl, { signal: controller.signal });
-                clearTimeout(timeoutId);
-                if (resp.ok) {
-                    const data = await resp.json();
-                    if (data.contents) {
-                        fetchedMeta = parseHtmlMetadata(data.contents);
-                    }
+            const html = await fetchPageHtml(parsedUrl.href);
+            const meta = html ? parseHtmlMetadata(html, parsedUrl.hostname) : null;
+
+            if (meta && meta.doi && /^10\./.test(meta.doi)) {
+                if (await resolveDoiMetadata(meta.doi)) {
+                    setCitationStatus('success', 'DOI Found in Webpage', `Identified DOI ${meta.doi} from webpage metadata.`);
+                    showToast('Citation generated via webpage DOI!');
+                    return;
                 }
-            } catch (e) {
-                // Fallback to URL parsing
             }
 
-            document.getElementById('cite-type').value = 'webpage';
+            let citeUrl = cleanUrlForCitation(parsedUrl);
+            if (meta && meta.canonical) {
+                try {
+                    const canonical = new URL(meta.canonical, parsedUrl.href);
+                    if (canonical.hostname === parsedUrl.hostname) citeUrl = cleanUrlForCitation(canonical);
+                } catch (e) { /* keep original */ }
+            }
+
+            const siteName = (meta && meta.siteName) || domainName;
+            const institutional = isInstitutionalHost(parsedUrl.hostname);
+            const isPdf = /\.pdf$/i.test(parsedUrl.pathname);
+            const isJournalPage = !!(meta && meta.journal);
+            const type = isJournalPage ? 'journal' : (isPdf ? 'report' : (isNewsHost(parsedUrl.hostname) ? 'article' : 'webpage'));
+
+            document.getElementById('cite-type').value = type;
             handleCiteTypeChange();
 
-            if (fetchedMeta) {
-                if (fetchedMeta.doi) {
-                    const doiOk = await resolveDoiMetadata(fetchedMeta.doi);
-                    if (doiOk) {
-                        setCitationStatus('success', 'DOI Found in Webpage', `Identified DOI ${fetchedMeta.doi} from webpage metadata.`);
-                        showToast('Citation generated via webpage DOI!');
-                        return;
-                    }
-                }
+            const rawTitle = (meta && meta.title) || titleCandidate || (domainName ? `${domainName} home page` : 'Webpage');
+            const authors = (meta && meta.author) || (institutional && !isJournalPage ? siteName : '');
+            const year = (meta && meta.year) || dateParts.year;
+            const monthDay = (meta && meta.year) ? meta.monthDay : dateParts.monthDay;
 
-                document.getElementById('cite-title').value = toSentenceCase(fetchedMeta.title || titleCandidate);
-                document.getElementById('cite-authors').value = fetchedMeta.author || '';
-                document.getElementById('cite-year').value = fetchedMeta.year || yearCandidate || new Date().getFullYear().toString();
-                document.getElementById('cite-monthday').value = fetchedMeta.monthDay || monthDayCandidate;
-                document.getElementById('cite-source').value = fetchedMeta.siteName || domainName;
-                document.getElementById('cite-doi-url').value = parsedUrl.href;
-                updateCitationPreview();
-                setCitationStatus('success', 'Webpage Metadata Extracted', `Extracted details from "${fetchedMeta.siteName || domainName}". Review and verify details.`);
+            document.getElementById('cite-title').value = toSentenceCase(rawTitle, [siteName, ...(authors ? authors.split(/[;,]\s*/) : [])]);
+            document.getElementById('cite-authors').value = authors;
+            document.getElementById('cite-year').value = year;
+            document.getElementById('cite-monthday').value = monthDay;
+            document.getElementById('cite-source').value = isJournalPage ? toTitleCase(meta.journal) : siteName;
+            document.getElementById('cite-volume').value = isJournalPage ? meta.volume : '';
+            document.getElementById('cite-issue').value = isJournalPage ? meta.issue : '';
+            document.getElementById('cite-pages').value = isJournalPage ? meta.pages : '';
+            document.getElementById('cite-doi-url').value = citeUrl;
+            updateCitationPreview();
+
+            const missing = [];
+            if (!authors) missing.push('author');
+            if (!year) missing.push('date');
+            if (meta) {
+                const note = missing.length
+                    ? `Extracted details from "${siteName}". No ${missing.join(' or ')} found; the entry uses ${authors ? '(n.d.)' : 'the title in the author position'} per APA. Please verify.`
+                    : `Extracted details from "${siteName}". Review and verify details.`;
+                setCitationStatus(missing.length ? 'warning' : 'success', 'Webpage Metadata Extracted', note);
                 showToast('Web citation generated!');
             } else {
-                const defaultTitle = titleCandidate || (domainName ? `${domainName} home page` : 'Webpage');
-                document.getElementById('cite-title').value = toSentenceCase(defaultTitle);
-                document.getElementById('cite-authors').value = isCorporateAuthor(domainName) || isKnownInstitutionalSite(parsedUrl.hostname) ? domainName : '';
-                document.getElementById('cite-year').value = yearCandidate || new Date().getFullYear().toString();
-                document.getElementById('cite-monthday').value = monthDayCandidate;
-                document.getElementById('cite-source').value = domainName;
-                document.getElementById('cite-doi-url').value = parsedUrl.href;
-                updateCitationPreview();
-                setCitationStatus('warning', 'URL Analyzed', `Extracted site and article name from the link. Please review and refine the author and title fields.`);
+                setCitationStatus('warning', 'URL Analyzed', 'The page could not be read (blocked or offline), so the title and site came from the link itself. Please review the author, date and title fields.');
                 showToast('Citation template generated from link.');
             }
         }
@@ -2546,62 +2762,120 @@
                 'un.org': 'United Nations',
                 'reuters.com': 'Reuters',
                 'apnews.com': 'Associated Press',
-                'statnews.com': 'STAT News'
+                'statnews.com': 'STAT News',
+                'cnn.com': 'CNN',
+                'npr.org': 'NPR',
+                'forbes.com': 'Forbes',
+                'bloomberg.com': 'Bloomberg',
+                'theatlantic.com': 'The Atlantic',
+                'newyorker.com': 'The New Yorker',
+                'time.com': 'Time',
+                'usatoday.com': 'USA Today',
+                'latimes.com': 'Los Angeles Times',
+                'aljazeera.com': 'Al Jazeera',
+                'medium.com': 'Medium',
+                'wikipedia.org': 'Wikipedia',
+                'nasa.gov': 'National Aeronautics and Space Administration',
+                'unesco.org': 'United Nations Educational, Scientific and Cultural Organization',
+                'unicef.org': 'UNICEF'
             };
             if (domainMap[cleanHost]) return domainMap[cleanHost];
+            const suffixKey = Object.keys(domainMap).find(k => cleanHost.endsWith('.' + k));
+            if (suffixKey) return domainMap[suffixKey];
 
-            const namePart = cleanHost.split('.')[0] || cleanHost;
+            const namePart = registrableLabel(cleanHost) || cleanHost;
             return namePart.split(/[-_]+/).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
         }
 
         function deriveTitleFromUrlPath(pathname) {
-            const segments = pathname.split('/').filter(Boolean);
+            let segments = pathname.split('/').filter(Boolean).map(s => {
+                try { return decodeURIComponent(s); } catch (e) { return s; }
+            });
+            // Skip trailing IDs, dates and language/index segments that make poor titles.
+            while (segments.length && /^(\d+|[0-9a-f]{8,}|index(\.\w+)?|default(\.\w+)?|amp|[a-z]{2}(-[a-z]{2})?)$/i.test(segments[segments.length - 1].replace(/\.(html?|php|aspx?|jsp|pdf)$/i, ''))) {
+                segments.pop();
+            }
             if (!segments.length) return '';
-            const last = segments[segments.length - 1];
-            const clean = last.replace(/\.(html?|php|asp|jsp)$/i, '').replace(/[-_]+/g, ' ');
+            const clean = segments[segments.length - 1]
+                .replace(/\.(html?|php|aspx?|jsp|pdf)$/i, '')
+                .replace(/[-_+]+/g, ' ')
+                .replace(/\s+\d{5,}$/, '')
+                .trim();
             return clean.length > 3 ? clean : '';
         }
 
-        function parseHtmlMetadata(htmlString) {
+        function parseHtmlMetadata(htmlString, hostname) {
             try {
-                const parser = new DOMParser();
-                const doc = parser.parseFromString(htmlString, 'text/html');
-
-                const getMeta = (names) => {
-                    for (const name of names) {
-                        const el = doc.querySelector(`meta[name="${name}" i], meta[property="${name}" i]`);
-                        if (el && el.getAttribute('content')) {
-                            return el.getAttribute('content').trim();
-                        }
-                    }
-                    return '';
+                const doc = new DOMParser().parseFromString(htmlString, 'text/html');
+                const metaAll = (names) => {
+                    const out = [];
+                    names.forEach(name => {
+                        doc.querySelectorAll(`meta[name="${name}" i], meta[property="${name}" i], meta[itemprop="${name}" i]`).forEach(el => {
+                            const c = (el.getAttribute('content') || '').trim();
+                            if (c) out.push(c);
+                        });
+                    });
+                    return out;
                 };
+                const getMeta = names => metaAll(names)[0] || '';
 
-                const title = getMeta(['citation_title', 'og:title', 'twitter:title']) || (doc.title ? doc.title.replace(/\s*[|\-–—]\s*[^|\-–—]+$/, '').trim() : '');
-                const author = getMeta(['citation_author', 'author', 'article:author', 'twitter:creator']);
-                const siteName = getMeta(['og:site_name', 'citation_journal_title', 'publisher']);
-                const doi = getMeta(['citation_doi', 'dc.identifier']);
+                const ld = collectJsonLd(doc);
+                const ldArticle = ld.find(n => /Article|BlogPosting|NewsArticle|Report|WebPage|ScholarlyArticle/i.test([].concat(n['@type'] || []).join(' '))) || {};
+                const nameOf = v => (Array.isArray(v) ? v.map(nameOf).filter(Boolean) : (v && typeof v === 'object' ? [v.name] : [v])).flat().filter(Boolean);
 
-                let year = '';
-                let monthDay = '';
-                const dateStr = getMeta(['citation_publication_date', 'citation_date', 'article:published_time', 'date']);
-                if (dateStr) {
-                    const d = new Date(dateStr);
-                    if (!isNaN(d.getFullYear())) {
-                        year = d.getFullYear().toString();
-                        const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-                        monthDay = `${monthNames[d.getMonth()]} ${d.getDate()}`;
-                    }
+                const siteName = getMeta(['og:site_name', 'application-name', 'publisher'])
+                    || nameOf(ldArticle.publisher)[0] || nameOf((ld.find(n => n['@type'] === 'WebSite') || {}).name)[0] || '';
+                const journal = getMeta(['citation_journal_title', 'prism.publicationName']);
+
+                let authors = metaAll(['citation_author', 'dc.creator', 'dcterms.creator', 'parsely-author', 'sailthru.author']);
+                if (!authors.length) authors = metaAll(['author', 'article:author']).filter(a => !/^https?:/i.test(a));
+                if (!authors.length) authors = nameOf(ldArticle.author);
+                authors = [...new Set(authors.map(cleanAuthorName).filter(Boolean))];
+
+                const rawTitle = getMeta(['citation_title', 'dc.title', 'og:title', 'twitter:title']) || ldArticle.headline
+                    || (doc.querySelector('h1') ? doc.querySelector('h1').textContent : '') || doc.title || '';
+                const title = stripSiteFromTitle(rawTitle, siteName, hostname);
+
+                let dateStr = getMeta(['citation_publication_date', 'citation_date', 'citation_online_date', 'article:published_time', 'datepublished', 'dc.date.issued', 'dc.date', 'dcterms.created', 'pubdate', 'publish-date', 'parsely-pub-date', 'sailthru.date', 'date'])
+                    || ldArticle.datePublished || '';
+                if (!dateStr) {
+                    const timeEl = doc.querySelector('time[datetime]');
+                    if (timeEl) dateStr = timeEl.getAttribute('datetime');
                 }
+                const { year, monthDay } = parseDateParts(dateStr);
 
-                return { title, author, siteName, doi, year, monthDay };
+                const canonicalEl = doc.querySelector('link[rel="canonical"]');
+                const firstPage = getMeta(['citation_firstpage']);
+                const lastPage = getMeta(['citation_lastpage']);
+
+                return {
+                    title,
+                    author: authors.join('; '),
+                    siteName,
+                    journal,
+                    volume: getMeta(['citation_volume']),
+                    issue: getMeta(['citation_issue']),
+                    pages: firstPage ? (lastPage && lastPage !== firstPage ? `${firstPage}–${lastPage}` : firstPage) : '',
+                    doi: getMeta(['citation_doi', 'dc.identifier', 'prism.doi']).replace(/^doi:\s*/i, ''),
+                    year,
+                    monthDay,
+                    canonical: canonicalEl ? canonicalEl.getAttribute('href') : ''
+                };
             } catch (e) {
                 return null;
             }
         }
 
-        function toSentenceCase(text) {
+        const SENTENCE_CASE_PROPER_NOUNS = ['January', 'February', 'March', 'April', 'June', 'July', 'August', 'September', 'October', 'November', 'December', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday', 'English', 'Spanish', 'French', 'German', 'Chinese', 'Japanese', 'Filipino', 'American', 'European', 'Asian', 'African', 'Australian', 'Canadian', 'British', 'Africa', 'Asia', 'Europe', 'America', 'Australia', 'Canada', 'China', 'India', 'Japan', 'Philippines', 'Manila', 'Mexico', 'Brazil', 'Russia', 'France', 'Germany', 'Google', 'Facebook', 'Instagram', 'TikTok', 'YouTube', 'Twitter', 'Wikipedia', 'Internet', 'Zoom', 'Microsoft', 'Apple', 'Amazon', 'God', 'Christian', 'Catholic', 'Islam', 'Muslim', 'Buddhist', 'Jewish'];
+
+        function toSentenceCase(text, preserve) {
             if (!text) return '';
+            const keepWords = new Map();
+            SENTENCE_CASE_PROPER_NOUNS.forEach(w => keepWords.set(w.toLowerCase(), w));
+            (preserve || []).forEach(phrase => String(phrase || '').split(/\s+/).forEach(w => {
+                const cleaned = w.replace(/^[^A-Za-z0-9]+|[^A-Za-z0-9]+$/g, '');
+                if (cleaned.length > 2 && /^[A-Z]/.test(cleaned)) keepWords.set(cleaned.toLowerCase(), cleaned);
+            }));
             const str = text.trim();
             const acronyms = new Set(['DNA', 'RNA', 'HIV', 'AIDS', 'COVID', 'COVID-19', 'AI', 'ML', 'USA', 'UK', 'EU', 'UN', 'WHO', 'CDC', 'NIH', 'APA', 'IEEE', 'ACM', 'MRI', 'FMRI', 'EEG', 'CT', 'PCR', 'IQ']);
 
@@ -2624,6 +2898,10 @@
                 const cleanUpper = word.toUpperCase();
                 if (acronyms.has(cleanUpper)) {
                     return cleanUpper;
+                }
+
+                if (keepWords.has(word.toLowerCase()) && word.length > 2) {
+                    return keepWords.get(word.toLowerCase());
                 }
 
                 const before = str.slice(0, offset);
@@ -2774,101 +3052,69 @@
         }
 
         function generateApaReference(item) {
+            const clean = v => stripItalicMarkers(v || '').trim();
             const authorsStr = formatAuthorsApa(item.authors);
             let dateStr = '(n.d.).';
             if (item.year) {
-                if (item.monthDay && item.type === 'webpage') {
-                    dateStr = `(${item.year}, ${item.monthDay}).`;
-                } else {
-                    dateStr = `(${item.year}).`;
-                }
+                const showMonthDay = item.monthDay && (item.type === 'webpage' || item.type === 'article');
+                dateStr = showMonthDay ? `(${clean(item.year)}, ${clean(item.monthDay)}).` : `(${clean(item.year)}).`;
             }
 
-            const rawTitle = item.title ? item.title.trim() : 'Untitled document';
-            const sentenceTitle = toSentenceCase(rawTitle);
+            const rawTitle = clean(item.title) || 'Untitled document';
+            const title = toSentenceCase(rawTitle).replace(/\.+$/, '');
+            const endsInQuestion = /[?!]$/.test(title);
+            const siteName = clean(item.source);
+            const doiUrl = item.doi
+                ? (item.doi.startsWith('http') ? item.doi : `https://doi.org/${item.doi.replace(/^doi:\s*/i, '')}`)
+                : (item.url || '');
+            const locator = doiUrl ? ` ${doiUrl}` : '';
 
-            let html = '';
-            let plain = '';
-
-            const doiUrl = item.doi ? (item.doi.startsWith('http') ? item.doi : `https://doi.org/${item.doi.replace(/^doi:\s*/i, '')}`) : (item.url || '');
-
-            if (item.type === 'journal') {
-                const authorPrefix = authorsStr ? `${authorsStr} ${dateStr} ` : `${dateStr} `;
-                const cleanTitle = sentenceTitle.replace(/[.!?]+$/, '') + '.';
-                const journalTitle = item.source ? toTitleCase(item.source.trim()) : '';
-                
-                let containerHtml = journalTitle ? `<i>${journalTitle}</i>` : '';
-                let containerPlain = journalTitle;
-
-                if (item.volume) {
-                    containerHtml += `, <i>${item.volume}</i>`;
-                    containerPlain += `, ${item.volume}`;
-                }
-                if (item.issue) {
-                    containerHtml += `(${item.issue})`;
-                    containerPlain += `(${item.issue})`;
-                }
-                if (item.pages) {
-                    const cleanPages = item.pages.replace('-', '–');
-                    containerHtml += `, ${cleanPages}`;
-                    containerPlain += `, ${cleanPages}`;
-                }
-                if (containerHtml) {
-                    containerHtml += '.';
-                    containerPlain += '.';
-                }
-
-                html = `${authorPrefix}${cleanTitle} ${containerHtml}${doiUrl ? ' ' + doiUrl : ''}`.trim();
-                plain = `${authorPrefix}${cleanTitle} ${containerPlain}${doiUrl ? ' ' + doiUrl : ''}`.trim();
-            } else if (item.type === 'book') {
-                const authorPrefix = authorsStr ? `${authorsStr} ${dateStr} ` : `${dateStr} `;
-                const cleanTitle = sentenceTitle.replace(/[.!?]+$/, '');
-                const pub = item.source ? `${item.source.trim()}.` : '';
-                html = `${authorPrefix}<i>${cleanTitle}</i>.${pub ? ' ' + pub : ''}${doiUrl ? ' ' + doiUrl : ''}`.trim();
-                plain = `${authorPrefix}${cleanTitle}.${pub ? ' ' + pub : ''}${doiUrl ? ' ' + doiUrl : ''}`.trim();
-            } else if (item.type === 'religious') {
-                const authorPrefix = authorsStr ? `${authorsStr} ${dateStr} ` : `${dateStr} `;
-                const cleanTitle = sentenceTitle.replace(/[.!?]+$/, '');
-                const sourceText = item.source ? ` ${item.source.trim()}.` : '';
-                const descriptor = item.descriptor || '[Encyclical]';
-                html = `${authorPrefix}<i>${cleanTitle}</i> ${descriptor}.${sourceText}${doiUrl ? ' ' + doiUrl : ''}`.trim();
-                plain = `${authorPrefix}${cleanTitle} ${descriptor}.${sourceText}${doiUrl ? ' ' + doiUrl : ''}`.trim();
-            } else if (item.type === 'webpage') {
-                let authorPrefix = '';
-                const siteName = item.source ? item.source.trim() : '';
-                if (authorsStr) {
-                    authorPrefix = `${authorsStr} ${dateStr} `;
-                } else if (siteName) {
-                    authorPrefix = `${siteName}. ${dateStr} `;
-                } else {
-                    authorPrefix = `${dateStr} `;
-                }
-
-                const cleanTitle = sentenceTitle.replace(/[.!?]+$/, '');
-                let sourceHtml = '';
-                let sourcePlain = '';
-                if (siteName && siteName.toLowerCase() !== (authorsStr || '').toLowerCase()) {
-                    sourceHtml = `${siteName}.`;
-                    sourcePlain = `${siteName}.`;
-                }
-
-                html = `${authorPrefix}<i>${cleanTitle}</i>.${sourceHtml ? ' ' + sourceHtml : ''}${doiUrl ? ' ' + doiUrl : ''}`.trim();
-                plain = `${authorPrefix}${cleanTitle}.${sourcePlain ? ' ' + sourcePlain : ''}${doiUrl ? ' ' + doiUrl : ''}`.trim();
+            // Whether the work title is italic depends on the source type:
+            // stand-alone works are italic, parts of a larger container (articles) are not.
+            const italicTitle = item.type !== 'journal' && item.type !== 'article';
+            const descriptor = item.type === 'religious' ? (item.descriptor || '[Encyclical]') : '';
+            let titleSeg;
+            if (italicTitle) {
+                titleSeg = endsInQuestion && !descriptor ? `*${title}*` : `*${title}*${descriptor ? ' ' + descriptor : ''}.`;
             } else {
-                const authorPrefix = authorsStr ? `${authorsStr} ${dateStr} ` : `${dateStr} `;
-                const cleanTitle = sentenceTitle.replace(/[.!?]+$/, '');
-                const pub = item.source ? `${item.source.trim()}.` : '';
-                html = `${authorPrefix}<i>${cleanTitle}</i>.${pub ? ' ' + pub : ''}${doiUrl ? ' ' + doiUrl : ''}`.trim();
-                plain = `${authorPrefix}${cleanTitle}.${pub ? ' ' + pub : ''}${doiUrl ? ' ' + doiUrl : ''}`.trim();
+                titleSeg = endsInQuestion ? title : `${title}.`;
             }
 
-            return { html, plain };
+            const head = authorsStr
+                ? `${authorsStr}${/\.$/.test(authorsStr) ? '' : '.'} ${dateStr} ${titleSeg}`
+                : `${titleSeg} ${dateStr}`;
+
+            let container = '';
+            if (item.type === 'journal') {
+                const journalTitle = siteName ? toTitleCase(siteName) : '';
+                container = journalTitle ? `*${journalTitle}*` : '';
+                const volume = clean(item.volume);
+                const issue = clean(item.issue);
+                const pages = clean(item.pages).replace(/(\w)\s*[-‐‑‒]\s*(\w)/g, '$1–$2');
+                if (volume) container += `${container ? ', ' : ''}*${volume}*`;
+                if (issue) container += `(${issue})`;
+                if (pages) container += `${container ? ', ' : ''}${pages}`;
+                if (container) container += '.';
+            } else if (item.type === 'article') {
+                container = siteName ? `*${siteName}*.` : '';
+            } else if (siteName) {
+                // Publisher / website name; omitted when it is already the author.
+                const sameAsAuthor = authorsStr && siteName.toLowerCase() === authorsStr.replace(/\.$/, '').toLowerCase();
+                if (!sameAsAuthor) container = `${siteName.replace(/\.+$/, '')}.`;
+            }
+
+            const marked = `${head}${container ? ' ' + container : ''}${locator}`.replace(/\s+/g, ' ').trim();
+            return {
+                html: markersToHtml(marked),
+                plain: stripItalicMarkers(marked),
+                marked
+            };
         }
 
         function handleCiteTypeChange() {
             const type = document.getElementById('cite-type').value;
             const isJournal = type === 'journal';
-            const isWebpage = type === 'webpage';
+            const isWebpage = type === 'webpage' || type === 'article';
 
             const journalMeta = document.getElementById('cite-journal-meta-wrapper');
             const monthDayWrapper = document.getElementById('cite-monthday-wrapper');
@@ -2881,6 +3127,7 @@
                 if (isJournal) sourceLabel.innerText = 'Journal Name (Title Case)';
                 else if (type === 'book') sourceLabel.innerText = 'Publisher Name';
                 else if (isWebpage) sourceLabel.innerText = 'Website / Organization Name';
+                else if (type === 'article') sourceLabel.innerText = 'Publication / Blog Name (italicized)';
                 else if (type === 'religious') sourceLabel.innerText = 'Publisher / Religious Institution';
                 else sourceLabel.innerText = 'Publisher / Sponsoring Organization';
             }
@@ -2909,6 +3156,8 @@
             const pages = document.getElementById('cite-pages') ? document.getElementById('cite-pages').value.trim() : '';
             const doiUrl = document.getElementById('cite-doi-url').value.trim();
 
+            const doiMatch = doiUrl.match(/^(?:https?:\/\/(?:dx\.)?doi\.org\/|doi:\s*)?(10\.\d{4,9}\/\S+)$/i);
+
             const item = {
                 type,
                 title,
@@ -2920,12 +3169,13 @@
                 issue,
                 pages,
                 descriptor: type === 'religious' ? '[Encyclical]' : '',
-                doi: doiUrl.includes('10.') && !doiUrl.startsWith('http') ? doiUrl : (doiUrl.startsWith('https://doi.org/') ? doiUrl : ''),
-                url: !doiUrl.startsWith('https://doi.org/') && !doiUrl.startsWith('10.') ? doiUrl : ''
+                doi: doiMatch ? `https://doi.org/${doiMatch[1]}` : '',
+                url: doiMatch ? '' : (/^(?:www\.)\S+$/i.test(doiUrl) ? `https://${doiUrl}` : doiUrl)
             };
 
             const formatted = generateApaReference(item);
             currentCitationPlain = formatted.plain;
+            currentCitationMarked = formatted.marked;
 
             const refEl = document.getElementById('prev-citation-reference');
             if (refEl) {
@@ -2967,7 +3217,8 @@
 
             const bibInput = document.getElementById('bibliography-input');
             const currentText = bibInput.value.trim();
-            bibInput.value = currentText ? `${currentText}\n\n${currentCitationPlain}` : currentCitationPlain;
+            const entry = currentCitationMarked || currentCitationPlain;
+            bibInput.value = currentText ? `${currentText}\n\n${entry}` : entry;
 
             showToast('Citation added to Bibliography Formatter!');
         }
