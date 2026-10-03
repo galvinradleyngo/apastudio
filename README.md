@@ -23,3 +23,9 @@ A modern, browser-based academic formatting workspace for researchers, educators
    - Interactive metadata review and 1-click addition directly into the Bibliography Formatter.
    - 1-click rich-text copy and Word export.
 
+
+## URL handling notes
+- Web links resolve in this order: DOI in the link, arXiv, YouTube (oEmbed), Wikipedia, then page metadata (JSON-LD, Dublin Core, `citation_*`, Open Graph). If the page title matches a published work in Crossref, that record is used. If the live page is blocked, the Wayback Machine copy is tried.
+- Fields are marked green (found in source), amber (guessed from the link) or red (missing) so you know what to verify. Editing a field clears its marker.
+- Optional: deploy `worker/metadata-proxy.js` (see `worker/README.md`) for more reliable page fetching.
+- Tests: `node tests/url-metadata.test.js` (requires Playwright).

@@ -139,6 +139,9 @@
         .issue-list li {
             margin: 0.125rem 0;
         }
+        .prov-found { box-shadow: inset 3px 0 0 #10b981 !important; }
+        .prov-guess { box-shadow: inset 3px 0 0 #f59e0b !important; }
+        .prov-missing { box-shadow: inset 3px 0 0 #f43f5e !important; }
     </style>
 </head>
 <body class="h-screen flex flex-col overflow-hidden text-slate-800">
@@ -598,6 +601,12 @@
                                     <p id="citation-status-desc" class="mt-0.5 opacity-90"></p>
                                 </div>
                             </div>
+                            <p id="citation-prov-legend" class="hidden text-[11px] text-slate-500 mt-2">
+                                Field markers:
+                                <span class="inline-block w-2 h-2 rounded-sm align-middle" style="background:#10b981"></span> found in source &nbsp;
+                                <span class="inline-block w-2 h-2 rounded-sm align-middle" style="background:#f59e0b"></span> guessed from link &nbsp;
+                                <span class="inline-block w-2 h-2 rounded-sm align-middle" style="background:#f43f5e"></span> missing, please add
+                            </p>
                         </div>
 
                         <!-- Extracted / Editable Metadata Form -->
@@ -621,6 +630,7 @@
                                             <option value="book">Book / Monograph</option>
                                             <option value="webpage">Webpage / Website Page</option>
                                             <option value="article">News / Magazine / Blog Article</option>
+                                            <option value="video">Online Video (YouTube, etc.)</option>
                                             <option value="report">Report / Working Paper</option>
                                             <option value="religious">Religious / Foundational Document</option>
                                         </select>
@@ -1035,6 +1045,10 @@
             showHome();
             document.getElementById('paste-zone').addEventListener('paste', handlePasteInZone);
             initPdfDropzone();
+            PROVENANCE_FIELDS.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.addEventListener('input', () => el.classList.remove('prov-found', 'prov-guess', 'prov-missing'));
+            });
         }
 
         function setMode(mode) {
@@ -2374,6 +2388,9 @@
                 }
             }
 
+            // 3a. YouTube video via oEmbed
+            if (await resolveYouTubeUrl(input)) return;
+
             // 3. Wikipedia article
             const wikiMatch = input.match(/wikipedia\.org\/wiki\/([^#?&]+)/i);
             if (wikiMatch) {
@@ -2489,6 +2506,7 @@
             document.getElementById('cite-doi-url').value = `https://doi.org/${cleanDoi}`;
 
             updateCitationPreview();
+            applyFieldProvenance({});
         }
 
         function populateFromDatacite(attrs, cleanDoi) {
@@ -2514,6 +2532,7 @@
             document.getElementById('cite-doi-url').value = `https://doi.org/${cleanDoi}`;
 
             updateCitationPreview();
+            applyFieldProvenance({});
         }
 
         const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
@@ -2602,6 +2621,106 @@
             return nodes;
         }
 
+        // Optional self-hosted metadata proxy (see worker/README.md). Set window.APA_METADATA_PROXY
+        // before this script runs, or edit this constant, to route page fetches through it first.
+        const METADATA_PROXY_URL = (typeof window !== 'undefined' && window.APA_METADATA_PROXY) || '';
+        const PROVENANCE_FIELDS = ['cite-title', 'cite-authors', 'cite-year', 'cite-source', 'cite-doi-url'];
+
+        function clearFieldProvenance() {
+            PROVENANCE_FIELDS.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.classList.remove('prov-found', 'prov-guess', 'prov-missing');
+            });
+            const legend = document.getElementById('citation-prov-legend');
+            if (legend) legend.classList.add('hidden');
+        }
+
+        // states maps a field id to 'found' | 'guess'; empty required fields are shown as missing.
+        function applyFieldProvenance(states) {
+            clearFieldProvenance();
+            PROVENANCE_FIELDS.forEach(id => {
+                const el = document.getElementById(id);
+                if (!el) return;
+                const hasValue = !!el.value.trim();
+                if (!hasValue && !['cite-authors', 'cite-year', 'cite-title'].includes(id)) return;
+                el.classList.add(`prov-${hasValue ? (states[id] || 'found') : 'missing'}`);
+            });
+            const legend = document.getElementById('citation-prov-legend');
+            if (legend) legend.classList.remove('hidden');
+        }
+
+        function titleSimilarity(a, b) {
+            const tokens = t => new Set(String(t || '').toLowerCase().replace(/[^a-z0-9\s]/g, ' ').split(/\s+/).filter(w => w.length > 2));
+            const A = tokens(a), B = tokens(b);
+            if (!A.size || !B.size) return 0;
+            let shared = 0;
+            A.forEach(w => { if (B.has(w)) shared++; });
+            return shared / Math.max(A.size, B.size);
+        }
+
+        // Looks a page title up in Crossref and returns a DOI only for a near-exact title match.
+        async function findDoiByTitle(title, authorHint) {
+            if (!title || title.split(/\s+/).length < 4) return null;
+            try {
+                const query = `query.bibliographic=${encodeURIComponent(title)}${authorHint ? '&query.author=' + encodeURIComponent(authorHint) : ''}&rows=3&select=DOI,title`;
+                const resp = await fetch(`https://api.crossref.org/works?${query}`);
+                if (!resp.ok) return null;
+                const items = ((await resp.json()).message || {}).items || [];
+                const hit = items.find(it => titleSimilarity(title, (it.title || [])[0]) >= 0.85);
+                return hit ? hit.DOI : null;
+            } catch (e) {
+                return null;
+            }
+        }
+
+        async function fetchWaybackHtml(url, attempt) {
+            try {
+                const resp = await fetch(`https://archive.org/wayback/available?url=${encodeURIComponent(url)}`);
+                if (!resp.ok) return null;
+                const snap = ((await resp.json()).archived_snapshots || {}).closest;
+                if (!snap || !snap.available) return null;
+                const rawUrl = snap.url.replace(/^http:/, 'https:').replace(/\/web\/(\d+)\//, '/web/$1id_/');
+                const enc = encodeURIComponent(rawUrl);
+                return await Promise.any([
+                    attempt(rawUrl, r => r.text()),
+                    attempt(`https://api.allorigins.win/get?url=${enc}`, async r => (await r.json()).contents),
+                    attempt(`https://corsproxy.io/?url=${enc}`, r => r.text())
+                ]);
+            } catch (e) {
+                return null;
+            }
+        }
+
+        async function resolveYouTubeUrl(input) {
+            let url;
+            try { url = new URL(/^https?:\/\//i.test(input) ? input : `https://${input}`); } catch (e) { return false; }
+            const host = url.hostname.replace(/^www\.|^m\./i, '').toLowerCase();
+            if (host !== 'youtube.com' && host !== 'youtu.be') return false;
+            const videoId = host === 'youtu.be' ? url.pathname.slice(1) : url.searchParams.get('v');
+            if (!videoId) return false;
+            const canonical = `https://www.youtube.com/watch?v=${videoId}`;
+            try {
+                const resp = await fetch(`https://www.youtube.com/oembed?url=${encodeURIComponent(canonical)}&format=json`);
+                if (!resp.ok) return false;
+                const data = await resp.json();
+                document.getElementById('cite-type').value = 'video';
+                handleCiteTypeChange();
+                document.getElementById('cite-title').value = toSentenceCase(data.title || '', [data.author_name]);
+                document.getElementById('cite-authors').value = data.author_name || '';
+                document.getElementById('cite-year').value = '';
+                document.getElementById('cite-monthday').value = '';
+                document.getElementById('cite-source').value = 'YouTube';
+                document.getElementById('cite-doi-url').value = canonical;
+                updateCitationPreview();
+                applyFieldProvenance({});
+                setCitationStatus('warning', 'YouTube Video Found', 'Title and channel were retrieved. YouTube does not expose the upload date to this tool, so add the year and date from the video page. APA lists the channel name as the author.');
+                showToast('Video citation generated!');
+                return true;
+            } catch (e) {
+                return false;
+            }
+        }
+
         async function fetchPageHtml(url) {
             const attempt = async (endpoint, unwrap) => {
                 const controller = new AbortController();
@@ -2617,6 +2736,11 @@
                 }
             };
             const enc = encodeURIComponent(url);
+            if (METADATA_PROXY_URL) {
+                try {
+                    return await attempt(`${METADATA_PROXY_URL}${METADATA_PROXY_URL.includes('?') ? '&' : '?'}url=${enc}`, r => r.text());
+                } catch (e) { /* fall through to public routes */ }
+            }
             try {
                 return await Promise.any([
                     attempt(url, r => r.text()),
@@ -2625,7 +2749,7 @@
                     attempt(`https://api.codetabs.com/v1/proxy?quest=${enc}`, r => r.text())
                 ]);
             } catch (e) {
-                return null;
+                return fetchWaybackHtml(url, attempt);
             }
         }
 
@@ -2667,6 +2791,15 @@
                 }
             }
 
+            if (meta && meta.title && !isNewsHost(parsedUrl.hostname) && !meta.journal) {
+                const titleDoi = await findDoiByTitle(meta.title, (meta.author || '').split(/;\s*/)[0]);
+                if (titleDoi && await resolveDoiMetadata(titleDoi)) {
+                    setCitationStatus('success', 'Matched in Crossref', `The page title matched a published work (DOI ${titleDoi}). Check it is the right paper before using it.`);
+                    showToast('Citation matched via Crossref!');
+                    return;
+                }
+            }
+
             let citeUrl = cleanUrlForCitation(parsedUrl);
             if (meta && meta.canonical) {
                 try {
@@ -2699,6 +2832,13 @@
             document.getElementById('cite-pages').value = isJournalPage ? meta.pages : '';
             document.getElementById('cite-doi-url').value = citeUrl;
             updateCitationPreview();
+            applyFieldProvenance({
+                'cite-title': meta && meta.title ? 'found' : 'guess',
+                'cite-authors': meta && meta.author ? 'found' : 'guess',
+                'cite-year': meta && meta.year ? 'found' : 'guess',
+                'cite-source': meta && meta.siteName ? 'found' : 'guess',
+                'cite-doi-url': 'found'
+            });
 
             const missing = [];
             if (!authors) missing.push('author');
@@ -3056,7 +3196,7 @@
             const authorsStr = formatAuthorsApa(item.authors);
             let dateStr = '(n.d.).';
             if (item.year) {
-                const showMonthDay = item.monthDay && (item.type === 'webpage' || item.type === 'article');
+                const showMonthDay = item.monthDay && ['webpage', 'article', 'video'].includes(item.type);
                 dateStr = showMonthDay ? `(${clean(item.year)}, ${clean(item.monthDay)}).` : `(${clean(item.year)}).`;
             }
 
@@ -3072,7 +3212,7 @@
             // Whether the work title is italic depends on the source type:
             // stand-alone works are italic, parts of a larger container (articles) are not.
             const italicTitle = item.type !== 'journal' && item.type !== 'article';
-            const descriptor = item.type === 'religious' ? (item.descriptor || '[Encyclical]') : '';
+            const descriptor = item.type === 'religious' ? (item.descriptor || '[Encyclical]') : (item.type === 'video' ? '[Video]' : '');
             let titleSeg;
             if (italicTitle) {
                 titleSeg = endsInQuestion && !descriptor ? `*${title}*` : `*${title}*${descriptor ? ' ' + descriptor : ''}.`;
@@ -3114,7 +3254,7 @@
         function handleCiteTypeChange() {
             const type = document.getElementById('cite-type').value;
             const isJournal = type === 'journal';
-            const isWebpage = type === 'webpage' || type === 'article';
+            const isWebpage = type === 'webpage' || type === 'article' || type === 'video';
 
             const journalMeta = document.getElementById('cite-journal-meta-wrapper');
             const monthDayWrapper = document.getElementById('cite-monthday-wrapper');
@@ -3127,6 +3267,7 @@
                 if (isJournal) sourceLabel.innerText = 'Journal Name (Title Case)';
                 else if (type === 'book') sourceLabel.innerText = 'Publisher Name';
                 else if (isWebpage) sourceLabel.innerText = 'Website / Organization Name';
+                else if (type === 'video') sourceLabel.innerText = 'Platform (e.g. YouTube)';
                 else if (type === 'article') sourceLabel.innerText = 'Publication / Blog Name (italicized)';
                 else if (type === 'religious') sourceLabel.innerText = 'Publisher / Religious Institution';
                 else sourceLabel.innerText = 'Publisher / Sponsoring Organization';
@@ -3234,6 +3375,7 @@
             if (document.getElementById('cite-pages')) document.getElementById('cite-pages').value = '';
             document.getElementById('cite-doi-url').value = '';
             document.getElementById('citation-url-input').value = '';
+            clearFieldProvenance();
             setCitationStatus(null);
             updateCitationPreview();
             showToast('Citation form cleared.');
@@ -3242,6 +3384,7 @@
         function loadSampleCitation(key, showToastFlag = true) {
             const s = sampleCitations[key];
             if (!s) return;
+            clearFieldProvenance();
 
             document.getElementById('cite-type').value = s.type;
             handleCiteTypeChange();
