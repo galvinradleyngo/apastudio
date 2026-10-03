@@ -1,14 +1,24 @@
-// Cloudflare Worker: fetches a web page server-side so the browser app can read its metadata
-// without depending on public CORS proxies.
+// Cloudflare Worker: fetches a web page server-side so the APA Studio app can read
+// its metadata. Only the websites listed in ALLOWED_ORIGINS may use it from a browser.
 // Usage from the app: https://<your-worker>.workers.dev/?url=https%3A%2F%2Fexample.com%2Farticle
+
+// Address of the app (scheme + domain only, no path, no trailing slash). Add more with commas.
+const ALLOWED_ORIGINS = ['https://galvinradleyngo.github.io'];
+
 const MAX_BYTES = 1_500_000;
 
 export default {
   async fetch(request) {
+    const origin = request.headers.get('Origin') || '';
     const cors = {
-      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Origin': ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0],
+      'Vary': 'Origin',
       'Access-Control-Allow-Methods': 'GET, OPTIONS',
     };
+
+    if (origin && !ALLOWED_ORIGINS.includes(origin)) {
+      return new Response('Origin not allowed', { status: 403, headers: cors });
+    }
     if (request.method === 'OPTIONS') return new Response(null, { headers: cors });
 
     const target = new URL(request.url).searchParams.get('url');
