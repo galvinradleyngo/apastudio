@@ -130,6 +130,123 @@ check('citation-form author input accepts hyphenated initials', () => {
   assert.strictEqual(run("formatAuthorsApa(parseAuthorsInput('Martin, J.-P., & Lee, R.'))"), 'Martin, J.-P., & Lee, R.');
 });
 
+// ── Social media links ──────────────────────────────────────────────────────
+check('social links: platform, handle and post id come from the URL', () => {
+  const j = expr => JSON.parse(run(`JSON.stringify(${expr})`));
+  const x = j("parseSocialUrl('https://twitter.com/NASA/status/1766000000000000000?s=20&t=abc')");
+  assert.strictEqual(x.key, 'x'); assert.strictEqual(x.handle, 'NASA'); assert.strictEqual(x.postId, '1766000000000000000');
+  assert.strictEqual(x.url, 'https://twitter.com/NASA/status/1766000000000000000');
+  const ig = j("parseSocialUrl('https://www.instagram.com/janedoe/p/C3xAbCdEfGh/?igsh=1')");
+  assert.strictEqual(ig.key, 'instagram'); assert.strictEqual(ig.handle, 'janedoe'); assert.strictEqual(ig.postId, 'C3xAbCdEfGh');
+  const tt = j("parseSocialUrl('https://www.tiktok.com/@some.user/video/7340000000000000000')");
+  assert.strictEqual(tt.handle, 'some.user'); assert.strictEqual(tt.descriptor, 'Video');
+  const rd = j("parseSocialUrl('https://www.reddit.com/r/psychology/comments/abc123/why_we_sleep_matters/')");
+  assert.strictEqual(rd.postId, 'abc123'); assert.strictEqual(rd.title, 'why we sleep matters'); assert.strictEqual(rd.descriptor, 'Online forum post');
+  const bs = j("parseSocialUrl('https://bsky.app/profile/jane.bsky.social/post/3kabc')");
+  assert.strictEqual(bs.handle, 'jane.bsky.social'); assert.strictEqual(bs.postId, '3kabc');
+  const li = j("parseSocialUrl('https://www.linkedin.com/posts/jane-doe_hello-world-activity-7123456789012345678-AbCd')");
+  assert.strictEqual(li.handle, 'jane-doe');
+  assert.strictEqual(run("parseSocialUrl('https://example.com/status/1')"), null);
+  assert.strictEqual(run("parseSocialUrl('https://x.com/home')"), null);
+});
+check('social links: dates recovered from post ids (UTC) and rejected when implausible', () => {
+  // Build ids the way the platforms do, then decode them.
+  const xId = run("String((BigInt(Date.UTC(2024, 2, 5, 12, 0, 0) - 1288834974657)) << 22n)");
+  assert.strictEqual(run('JSON.stringify(dateFromSocialId("x", __v.id))', { id: xId }), JSON.stringify({ year: '2024', monthDay: 'March 5' }));
+  const tId = run("String(BigInt(Math.floor(Date.UTC(2023, 10, 20, 8, 0, 0) / 1000)) << 32n)");
+  assert.strictEqual(run('JSON.stringify(dateFromSocialId("tiktok", __v.id))', { id: tId }), JSON.stringify({ year: '2023', monthDay: 'November 20' }));
+  const igCode = run(`(() => { const a='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_'; let id=(BigInt(Date.UTC(2022,5,9,10,0,0)-1314220021721)<<23n); let s=''; while(id>0n){s=a[Number(id%64n)]+s; id/=64n;} return s; })()`);
+  assert.strictEqual(run('JSON.stringify(dateFromSocialId("instagram", __v.id))', { id: igCode }), JSON.stringify({ year: '2022', monthDay: 'June 9' }));
+  assert.strictEqual(run('JSON.stringify(dateFromSocialId("x", "123"))'), JSON.stringify({ year: '', monthDay: '' }));
+});
+check('social author formatting: people, organizations, handle only', () => {
+  assert.strictEqual(run("socialAuthor('Jane Doe', '@janedoe')"), 'Doe, J. [@janedoe]');
+  assert.strictEqual(run("socialAuthor('Mary Ann Smith', 'mas')"), 'Smith, M. A. [@mas]');
+  assert.strictEqual(run("socialAuthor('NASA', 'NASA')"), 'NASA [@NASA]');
+  assert.strictEqual(run("socialAuthor('World Health Organization', 'WHO')"), 'World Health Organization [@WHO]');
+  assert.strictEqual(run("socialAuthor('', 'janedoe')"), '@janedoe');
+});
+check('social post text: first 20 words, tracking links removed', () => {
+  const text = Array.from({ length: 30 }, (_, i) => `w${i + 1}`).join(' ');
+  assert.strictEqual(run('truncateWords(__v.t, 20)', { t: text }).split(' ').length, 20);
+  assert.strictEqual(run("cleanSocialText('Big news https://t.co/AbC123 today pic.twitter.com/xyz')"), 'Big news today');
+});
+check('social metadata parsers (Instagram description, Reddit JSON, Bluesky thread)', () => {
+  const insta = JSON.parse(run('JSON.stringify(parseInstagramDescription(__v.d))', { d: '1,234 likes, 56 comments - janedoe on March 5, 2024: "Lovely day at the beach #sun".' }));
+  assert.strictEqual(insta.handle, 'janedoe'); assert.strictEqual(insta.text, 'Lovely day at the beach #sun'); assert.strictEqual(insta.date.year, '2024');
+  const reddit = JSON.parse(run('JSON.stringify(parseRedditJson(__v.j))', { j: [{ data: { children: [{ data: { author: 'sleepy_user', title: 'Why we sleep', subreddit: 'psychology', created_utc: Date.UTC(2024, 2, 5, 12) / 1000 } }] } }] }));
+  assert.deepStrictEqual([reddit.author, reddit.title, reddit.date.monthDay], ['sleepy_user', 'Why we sleep', 'March 5']);
+  const bsky = JSON.parse(run('JSON.stringify(parseBlueskyThread(__v.j))', { j: { thread: { post: { author: { displayName: 'Jane Doe', handle: 'jane.bsky.social' }, record: { text: 'Hello sky', createdAt: '2024-03-05T10:00:00.000Z' } } } } }));
+  assert.deepStrictEqual([bsky.name, bsky.handle, bsky.text, bsky.date.monthDay], ['Jane Doe', 'jane.bsky.social', 'Hello sky', 'March 5']);
+});
+check('social reference: generated, parsed back and cited by surname', () => {
+  const marked = gen({ type: 'social', keepCase: true, title: 'Lovely day at the beach #sun', authors: [{ name: 'Doe, J. [@janedoe]' }], year: '2024', monthDay: 'March 5', source: 'Instagram', descriptor: 'Photograph', url: 'https://www.instagram.com/p/C3xAbCdEfGh' });
+  assert.strictEqual(marked, 'Doe, J. [@janedoe]. (2024, March 5). *Lovely day at the beach #sun* [Photograph]. Instagram. https://www.instagram.com/p/C3xAbCdEfGh');
+  const r = rebuild(strip(marked));
+  assert.ok(r.rebuilt, r.reason);
+  assert.strictEqual(r.text, marked);
+  assert.strictEqual(run("formatInTextCitation([{ name: 'Doe, J. [@janedoe]' }], '2024').parenthetical"), '(Doe, 2024)');
+  const handleOnly = gen({ type: 'social', keepCase: true, title: 'Hello', authors: [{ name: '@janedoe' }], year: '2024', monthDay: 'March 5', source: 'X', descriptor: 'Post', url: 'https://x.com/janedoe/status/1' });
+  assert.ok(rebuild(strip(handleOnly)).rebuilt);
+  assert.strictEqual(run("generateApaReference({ type: 'social', keepCase: true, title: 'WOW #Win ALL CAPS', authors: [], year: '2024', source: 'X' }).marked").includes('WOW #Win ALL CAPS'), true);
+});
+
+check('organization names with words like Library or Museum stay as one author', () => {
+  for (const name of ['Acme Library', 'City Museum', 'Open Science Network']) {
+    assert.strictEqual(run('JSON.stringify(parseAuthorsInput(__v.n))', { n: name }), JSON.stringify([{ name }]));
+  }
+  assert.strictEqual(run("JSON.stringify(parseAuthorsInput('Jane Doe'))"), JSON.stringify([{ family: 'Doe', given: 'Jane' }]));
+});
+
+// ── APA 7: podcast hosts ────────────────────────────────────────────────────
+check('APA 7: podcast authors are labelled (Host) / (Hosts) and round-trip', () => {
+  const one = gen({ type: 'podcast', year: '2024', monthDay: 'May 3', title: 'Sleep science', authors: [{ family: 'Lee', given: 'S.' }], edition: 'No. 12', container: 'Mind Matters', source: 'Radio One', url: 'https://r.org/12' });
+  assert.strictEqual(one, 'Lee, S. (Host). (2024, May 3). *Sleep science* (No. 12) [Audio podcast episode]. In *Mind Matters*. Radio One. https://r.org/12');
+  assert.strictEqual(rebuild(one).text, one);
+  const two = gen({ type: 'podcast', year: '2024', monthDay: 'May 3', title: 'Sleep science', authors: [{ family: 'Lee', given: 'S.' }, { family: 'Roe', given: 'R.' }], container: 'Mind Matters', source: 'Radio One' });
+  assert.ok(two.startsWith('Lee, S., & Roe, R. (Hosts). (2024, May 3).'), two);
+  assert.ok(rebuild(strip(two)).rebuilt);
+  assert.strictEqual(rebuild('Lee, S. (Host). (2020). A book. Press.').rebuilt, false);
+});
+
+// ── APA 7 alignment for social media posts ──────────────────────────────────
+check('APA 7: media bracket comes first, then the kind of post (X, Instagram, Facebook)', () => {
+  const social = (extra) => gen({ type: 'social', keepCase: true, year: '2024', monthDay: 'March 5', ...extra });
+  assert.strictEqual(
+    social({ title: 'Big news today for sleep research', authors: [{ name: 'Doe, J. [@janedoe]' }], media: 'Thumbnail with link attached', descriptor: 'Post', source: 'X', url: 'https://x.com/janedoe/status/1' }),
+    'Doe, J. [@janedoe]. (2024, March 5). *Big news today for sleep research* [Thumbnail with link attached] [Post]. X. https://x.com/janedoe/status/1');
+  assert.strictEqual(
+    social({ title: 'Lovely day at the beach #sun', authors: [{ name: 'Doe, J. [@janedoe]' }], descriptor: 'Photograph', source: 'Instagram', url: 'https://www.instagram.com/p/C3x' }),
+    'Doe, J. [@janedoe]. (2024, March 5). *Lovely day at the beach #sun* [Photograph]. Instagram. https://www.instagram.com/p/C3x');
+  assert.strictEqual(
+    social({ title: 'Open house this Saturday', authors: [{ name: 'Acme Library' }], media: 'Image attached', descriptor: 'Status update', source: 'Facebook', url: 'https://www.facebook.com/acme/posts/1' }),
+    'Acme Library. (2024, March 5). *Open house this Saturday* [Image attached] [Status update]. Facebook. https://www.facebook.com/acme/posts/1');
+  // default format bracket is [Post]
+  assert.ok(social({ title: 'Hi', authors: [{ name: '@janedoe' }], source: 'X', url: 'https://x.com/a/status/1' }).includes('*Hi* [Post]. X.'));
+});
+check('APA 7: the post is reproduced as written (capitalization, hashtags, final period, emoji)', () => {
+  const out = gen({ type: 'social', keepCase: true, year: '2024', monthDay: 'March 5', title: 'NEW study: sleep > coffee! #Sleep 😴 Read more.', authors: [{ name: 'Doe, J. [@janedoe]' }], descriptor: 'Post', source: 'X', url: 'https://x.com/a/status/1' });
+  assert.ok(out.includes('*NEW study: sleep > coffee! #Sleep 😴 Read more.* [Post]'), out);
+});
+check('APA 7: two-bracket social references parse back and rebuild unchanged', () => {
+  const ref = 'Acme Library. (2024, March 5). *Open house this Saturday* [Image attached] [Status update]. Facebook. https://www.facebook.com/acme/posts/1';
+  const r = rebuild(ref);
+  assert.ok(r.rebuilt, r.reason);
+  assert.strictEqual(r.text, ref);
+  const plain = rebuild(strip(ref));
+  assert.ok(plain.rebuilt, plain.reason);
+  assert.strictEqual(plain.text, ref);
+});
+check('APA 7: Instagram reels and Facebook videos are [Video], photos stay [Photograph]', () => {
+  const d = u => JSON.parse(run(`JSON.stringify(parseSocialUrl(__v.u))`, { u })).descriptor;
+  assert.strictEqual(d('https://www.instagram.com/p/C3xAbCdEfGh/'), 'Photograph');
+  assert.strictEqual(d('https://www.instagram.com/reel/C3xAbCdEfGh/'), 'Video');
+  assert.strictEqual(d('https://www.facebook.com/acme/posts/123'), 'Status update');
+  assert.strictEqual(d('https://www.facebook.com/acme/videos/123'), 'Video');
+  assert.strictEqual(d('https://x.com/janedoe/status/1766000000000000000'), 'Post');
+  assert.strictEqual(d('https://www.tiktok.com/@a/video/7340000000000000000'), 'Video');
+});
+
 // Existing pure helpers also run without a browser.
 check('engine: sentence case, page ranges, suffixes, BibTeX', () => {
   assert.strictEqual(run("toSentenceCase('Climate Change In Manila And The Philippines')"), 'Climate change in Manila and the Philippines');

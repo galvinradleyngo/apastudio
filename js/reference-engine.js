@@ -821,7 +821,7 @@ function toTitleCase(text) {
 }
 
 function isCorporateAuthor(name) {
-    return /\b(organization|department|ministry|institute|association|agency|commission|committee|university|college|corporation|center|centre|foundation|group|council|team|society|office|bureau|press|gov|inc|llc|ltd|plc|gmbh|corp|company|unicef|unesco)\b/i.test(name);
+    return /\b(organization|department|ministry|institute|association|agency|commission|committee|university|college|corporation|center|centre|foundation|group|council|team|society|office|bureau|press|gov|inc|llc|ltd|plc|gmbh|corp|company|unicef|unesco|library|libraries|museum|hospital|clinic|school|schools|academy|club|network|studio|studios|media|bank|lab|labs|laboratory|project|initiative|alliance|coalition|federation|union|league|board|authority|administration|service|services|partnership|trust|fund|program|programme|forum|consortium|collective|magazine|news|radio|television|publishing|publications?|observatory|society|ministry|government|municipality|city|county|state|national|international|global)\b/i.test(name);
 }
 
 function parseAuthorsInput(raw) {
@@ -906,7 +906,11 @@ function formatInTextCitation(authors, year) {
         if (typeof a === 'string') {
             return a.split(',')[0].trim().split(/\s+/).pop();
         }
-        if (a.name) return a.name.replace(/\s*\[@[^\]]+\]/, '');
+        if (a.name) {
+            // "Doe, J. [@janedoe]" (a social account) is cited by surname: (Doe, 2024)
+            const name = a.name.replace(/\s*\[@[^\]]+\]/, '').trim();
+            return /^[^,]+,\s*\p{Lu}\./u.test(name) ? name.split(',')[0].trim() : name;
+        }
         return a.family || a.familyName || 'Author';
     }).filter(Boolean);
 
@@ -974,7 +978,8 @@ function generateApaReference(item) {
     }
 
     const typedTitle = clean(item.title) || 'Untitled document';
-    const title = (item.keepCase ? typedTitle : toSentenceCase(typedTitle, item.preserve)).replace(/\.+$/, '');
+    // A post's own wording, capitalization and punctuation are reproduced exactly (APA 7), so its final period stays.
+    const title = (item.keepCase ? typedTitle : toSentenceCase(typedTitle, item.preserve)).replace(type === 'social' ? /^$/ : /\.+$/, '');
     const endsInQuestion = /[?!]$/.test(title);
     const siteName = clean(item.source);
     const doiUrl = item.doi
@@ -993,15 +998,21 @@ function generateApaReference(item) {
     const parenStr = parenParts.length ? `(${parenParts.join('; ')})` : '';
 
     const descText = clean(item.descriptor).replace(/^\[|\]$/g, '') || DEFAULT_DESCRIPTORS[type] || '';
+    // Social posts take two brackets: the attached media first, then the kind of post (APA 7).
+    const mediaText = type === 'social' ? clean(item.media).replace(/^\[|\]$/g, '') : '';
     let bracketStr = '';
     if (descText) bracketStr = type === 'thesis' && siteName ? `[${descText}, ${siteName}]` : `[${descText}]`;
+    if (mediaText) bracketStr = `[${mediaText}]${bracketStr ? ' ' + bracketStr : ''}`;
 
     const titleCore = italicTitle ? `*${title}*` : title;
     const tail = [parenStr, bracketStr].filter(Boolean).join(' ');
-    const titleSeg = tail ? `${titleCore} ${tail}.` : (endsInQuestion ? titleCore : `${titleCore}.`);
+    const titleSeg = tail ? `${titleCore} ${tail}.` : (endsInQuestion || (type === 'social' && /[.]$/.test(title)) ? titleCore : `${titleCore}.`);
 
-    const head = authorsStr
-        ? `${authorsStr}${/\.$/.test(authorsStr) ? '' : '.'} ${dateStr} ${titleSeg}`
+    // APA 7 marks podcast hosts: "Glass, I. (Host)." / "Glass, I., & Lee, S. (Hosts)."
+    const hostCount = type === 'podcast' ? (item.authors || []).filter(a => typeof a === 'string' || a.family).length : 0;
+    const authorsLabel = hostCount && authorsStr ? `${authorsStr.replace(/\.$/, '')}${/\.$/.test(authorsStr) ? '.' : ''} (${hostCount > 1 ? 'Hosts' : 'Host'})` : authorsStr;
+    const head = authorsLabel
+        ? `${authorsLabel}${/\.$/.test(authorsLabel) ? '' : '.'} ${dateStr} ${titleSeg}`
         : `${titleSeg} ${dateStr}`;
 
     let container = '';
@@ -1048,7 +1059,7 @@ function generateApaReference(item) {
 }
 const DEFAULT_DESCRIPTORS = {
     religious: 'Encyclical', video: 'Video', thesis: 'Doctoral dissertation', dataset: 'Data set',
-    software: 'Computer software', podcast: 'Audio podcast episode', social: 'Social media post'
+    software: 'Computer software', podcast: 'Audio podcast episode', social: 'Post'
 };
 
 function formatLongDate(d) {

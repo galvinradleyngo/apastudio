@@ -65,10 +65,10 @@ const check = async (name, fn) => { try { await fn(); console.log('ok  -', name)
   });
   await check('generator: podcast episode', async () => assert.strictEqual(
     await ref({ ...base, monthDay: 'May 3', type: 'podcast', title: 'Sleep science', authors: ['Lee, S.'], edition: 'No. 12', container: 'Mind Matters', source: 'Radio One' }),
-    'Lee, S. (2024, May 3). *Sleep science* (No. 12) [Audio podcast episode]. In *Mind Matters*. Radio One.'));
+    'Lee, S. (Host). (2024, May 3). *Sleep science* (No. 12) [Audio podcast episode]. In *Mind Matters*. Radio One.'));
   await check('generator: social post keeps handle', async () => assert.strictEqual(
     await ref({ ...base, monthDay: 'June 1', type: 'social', title: 'Big news today', authors: [{ name: 'Jane Doe [@janedoe]' }], source: 'X', url: 'https://x.com/p/1' }),
-    'Jane Doe [@janedoe]. (2024, June 1). *Big news today* [Social media post]. X. https://x.com/p/1'));
+    'Jane Doe [@janedoe]. (2024, June 1). *Big news today* [Post]. X. https://x.com/p/1'));
   await check('generator: retrieval date only for URLs', async () => {
     assert.strictEqual(await ref({ ...base, type: 'webpage', title: 'Live dashboard', authors: [{ name: 'Agency' }], source: 'Agency Site', retrieved: 'October 3, 2026', url: 'https://a.gov/d' }),
       'Agency. (2024). *Live dashboard*. Agency Site. Retrieved October 3, 2026, from https://a.gov/d');
@@ -108,7 +108,7 @@ const check = async (name, fn) => { try { await fn(); console.log('ok  -', name)
       return { text: document.getElementById('bibliography-input').value, html: document.getElementById('bibliography-preview-list').innerHTML };
     }, on);
     const on = await run(true);
-    assert.ok(on.text.includes('*Journal of Educational Computing*, *35*(2), 145–162.'), on.text);
+    assert.ok(!on.text.includes('*') && on.text.includes('Journal of Educational Computing, 35(2), 145–162.'), on.text);
     assert.ok(on.html.includes('<i>Journal of Educational Computing</i>, <i>35</i>(2)'), on.html);
     const off = await run(false);
     assert.ok(!off.text.includes('*') && off.text.includes('journal of educational computing'), off.text);
@@ -211,6 +211,49 @@ const check = async (name, fn) => { try { await fn(); console.log('ok  -', name)
     assert.ok(xml.includes('N = 250.') && /<w:i\/>[^]*?<w:t[^>]*>p<\/w:t>/.test(xml), 'notes with italic p');
   });
 
+  // ── Social media links (network mocked) ──────────────────────────────────
+  const cors = { 'access-control-allow-origin': '*', 'content-type': 'application/json' };
+  const readCitationFields = () => page.evaluate(() => {
+    const v = id => document.getElementById(id).value;
+    return { type: v('cite-type'), title: v('cite-title'), authors: v('cite-authors'), year: v('cite-year'), monthDay: v('cite-monthday'),
+      source: v('cite-source'), descriptor: v('cite-descriptor'), url: v('cite-doi-url'), ref: currentCitationPlain,
+      status: document.getElementById('citation-status-title').innerText };
+  });
+  await check('social link (X): author, date and first 20 words are filled in', async () => {
+    await page.route('**/publish.twitter.com/oembed**', r => r.fulfill({ status: 200, headers: cors, body: JSON.stringify({
+      author_name: 'Jane Doe', author_url: 'https://twitter.com/janedoe',
+      html: '<blockquote class="twitter-tweet"><p lang="en" dir="ltr">Big news today for sleep research https://t.co/abc123</p>&mdash; Jane Doe (@janedoe) <a href="https://twitter.com/janedoe/status/1766000000000000000">March 5, 2024</a></blockquote>' }) }));
+    await page.evaluate(() => resolveWebOrDoi('https://twitter.com/janedoe/status/1766000000000000000?s=20'));
+    const f = await readCitationFields();
+    assert.strictEqual(f.type, 'social'); assert.strictEqual(f.authors, 'Doe, J. [@janedoe]'); assert.strictEqual(f.title, 'Big news today for sleep research');
+    assert.strictEqual(f.year, '2024'); assert.strictEqual(f.monthDay, 'March 5'); assert.strictEqual(f.source, 'X'); assert.strictEqual(f.descriptor, 'Post');
+    assert.strictEqual(f.url, 'https://twitter.com/janedoe/status/1766000000000000000');
+    assert.strictEqual(f.ref, 'Doe, J. [@janedoe]. (2024, March 5). Big news today for sleep research [Post]. X. https://twitter.com/janedoe/status/1766000000000000000');
+    assert.ok(/Post Recognized/.test(f.status));
+  });
+  await check('social link (Bluesky and Reddit) use their public APIs', async () => {
+    await page.route('**/public.api.bsky.app/**', r => r.fulfill({ status: 200, headers: cors, body: JSON.stringify({ thread: { post: { author: { displayName: 'Jane Doe', handle: 'jane.bsky.social' }, record: { text: 'Hello from the sky', createdAt: '2024-03-05T10:00:00.000Z' } } } }) }));
+    await page.evaluate(() => resolveWebOrDoi('https://bsky.app/profile/jane.bsky.social/post/3kabc'));
+    let f = await readCitationFields();
+    assert.strictEqual(f.authors, 'Doe, J. [@jane.bsky.social]'); assert.strictEqual(f.title, 'Hello from the sky'); assert.strictEqual(f.source, 'Bluesky');
+    await page.route('**/www.reddit.com/comments/**', r => r.fulfill({ status: 200, headers: cors, body: JSON.stringify([{ data: { children: [{ data: { author: 'sleepy_user', title: 'Why we sleep matters', subreddit: 'psychology', created_utc: 1709640000 } }] } }]) }));
+    await page.evaluate(() => resolveWebOrDoi('https://www.reddit.com/r/psychology/comments/abc123/why_we_sleep_matters/'));
+    f = await readCitationFields();
+    assert.strictEqual(f.authors, 'sleepy_user'); assert.strictEqual(f.title, 'Why we sleep matters'); assert.strictEqual(f.descriptor, 'Online forum post'); assert.strictEqual(f.source, 'Reddit');
+    assert.ok(/^sleepy_user\. \(2024, March 5\)\. Why we sleep matters \[Online forum post\]\. Reddit\./.test(f.ref), f.ref);
+  });
+  await check('social link when nothing can be fetched: still builds a draft from the link and flags the gaps', async () => {
+    await page.unroute('**/publish.twitter.com/oembed**');
+    await page.route('**/publish.twitter.com/**', r => r.abort());
+    await page.route(/allorigins|corsproxy/, r => r.abort());
+    const id = await page.evaluate(() => String((BigInt(Date.UTC(2024, 2, 5, 12, 0, 0) - 1288834974657)) << 22n));
+    await page.evaluate(i => resolveWebOrDoi(`https://x.com/janedoe/status/${i}`), id);
+    const f = await readCitationFields();
+    assert.strictEqual(f.authors, '@janedoe'); assert.strictEqual(f.year, '2024'); assert.strictEqual(f.monthDay, 'March 5'); assert.strictEqual(f.source, 'X');
+    const warning = await page.evaluate(() => document.getElementById('citation-status-desc').innerText);
+    assert.ok(/first 20 words/.test(warning) && /UTC/.test(warning), warning);
+  });
+
   // ── Citation generator layout ────────────────────────────────────────────
   await check('citation workspace opens empty on the Web Link tab with a two-pane layout', async () => {
     const r = await page.evaluate(() => {
@@ -248,6 +291,23 @@ const check = async (name, fn) => { try { await fn(); console.log('ok  -', name)
     });
     assert.ok(r.shown && r.closedWhenEmpty && r.openWhenFilled, JSON.stringify(r));
   });
+  await check('social type shows the "Attached media" field and builds the two-bracket reference', async () => {
+    const r = await page.evaluate(() => {
+      resetCitationForm();
+      setCiteTypeFromSource('social');
+      const shown = document.getElementById('cite-wrap-media').offsetParent !== null;
+      document.getElementById('cite-title').value = 'Open house this Saturday';
+      document.getElementById('cite-authors').value = 'Acme Library';
+      document.getElementById('cite-year').value = '2024'; document.getElementById('cite-monthday').value = 'March 5';
+      document.getElementById('cite-source').value = 'Facebook'; document.getElementById('cite-descriptor').value = 'Status update';
+      document.getElementById('cite-media').value = 'Image attached';
+      document.getElementById('cite-doi-url').value = 'https://www.facebook.com/acme/posts/1';
+      updateCitationPreview();
+      return { shown, ref: currentCitationPlain };
+    });
+    assert.ok(r.shown);
+    assert.strictEqual(r.ref, 'Acme Library. (2024, March 5). Open house this Saturday [Image attached] [Status update]. Facebook. https://www.facebook.com/acme/posts/1');
+  });
   await check('chapter with no container does not print a dangling "In."', async () => {
     const out = await page.evaluate(() => generateApaReference({ type: 'chapter', title: 'A chapter', authors: ['Doe, J.'], year: '2020', source: 'Press' }).marked);
     assert.strictEqual(out, 'Doe, J. (2020). A chapter. Press.');
@@ -264,6 +324,38 @@ const check = async (name, fn) => { try { await fn(); console.log('ok  -', name)
       return document.getElementById('bibliography-input').value;
     });
     assert.ok(r.includes('*A book*'), r);
+  });
+
+  await check('bibliography text box stays free of asterisks and italics survive a second Format', async () => {
+    const r = await page.evaluate(() => {
+      document.getElementById('rebuild-toggle').checked = true;
+      document.getElementById('bibliography-input').value = 'Doe, J. (2020). Sleep and memory. Journal of Sleep Research, 12(3), 45-67.';
+      formatBibliography();
+      const first = { text: document.getElementById('bibliography-input').value, html: document.getElementById('bibliography-preview-list').innerHTML };
+      formatBibliography();
+      return { first, secondHtml: document.getElementById('bibliography-preview-list').innerHTML, secondText: document.getElementById('bibliography-input').value };
+    });
+    assert.ok(!r.first.text.includes('*'), r.first.text);
+    assert.ok(r.first.html.includes('<i>Journal of Sleep Research</i>') && r.secondHtml === r.first.html, r.secondHtml);
+    assert.strictEqual(r.secondText, r.first.text);
+  });
+  await check('sentence-case fix still works on the clean text box', async () => {
+    const r = await page.evaluate(() => {
+      document.getElementById('bibliography-input').value = 'Doe, J. (2020). The Effects Of Sleep On Memory In Adults. Journal of Sleep Research, 12(3), 45-67.';
+      formatBibliography();
+      fixSentenceCaseFor(bibMarkedLookup.values().next().value || document.getElementById('bibliography-input').value);
+      return document.getElementById('bibliography-input').value;
+    });
+    assert.ok(r.includes('The effects of sleep on memory in adults.'), r);
+  });
+  await check('table preview gives the stub column room (5 columns are not squeezed)', async () => {
+    const r = await page.evaluate(() => {
+      loadTemplate('correlation');
+      const t = document.getElementById('prev-table');
+      return { fixed: t.classList.contains('preview-fixed'), cols: gridData[0].length };
+    });
+    assert.strictEqual(r.cols, 5);
+    assert.strictEqual(r.fixed, false);
   });
 
   // ── Accessibility basics ─────────────────────────────────────────────────

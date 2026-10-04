@@ -268,6 +268,9 @@ async function resolveWebOrDoi(input) {
     // 3a. YouTube video via oEmbed
     if (await resolveYouTubeUrl(input)) return;
 
+    // 3b. Social media post (X, Instagram, Facebook, TikTok, Reddit, LinkedIn, Threads, Bluesky)
+    if (await resolveSocialUrl(input)) return;
+
     // 3. Wikipedia article
     const wikiMatch = input.match(/wikipedia\.org\/wiki\/([^#?&]+)/i);
     if (wikiMatch) {
@@ -471,6 +474,115 @@ async function fetchWaybackHtml(url, attempt) {
     }
 }
 
+// Fetches JSON that browsers usually cannot read cross-origin: directly first, then through public proxies.
+async function fetchJson(url) {
+    const attempt = async (endpoint, unwrap) => {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 7000);
+        try {
+            const resp = await fetch(endpoint, { signal: controller.signal });
+            if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+            return await unwrap(resp);
+        } finally {
+            clearTimeout(timer);
+        }
+    };
+    const enc = encodeURIComponent(url);
+    return Promise.any([
+        attempt(url, r => r.json()),
+        attempt(`https://api.allorigins.win/get?url=${enc}`, async r => JSON.parse((await r.json()).contents)),
+        attempt(`https://corsproxy.io/?url=${enc}`, r => r.json())
+    ]);
+}
+
+function htmlToPlainText(html) {
+    const doc = new DOMParser().parseFromString(String(html || ''), 'text/html');
+    return doc.body.textContent || '';
+}
+
+async function resolveSocialUrl(input) {
+    const info = parseSocialUrl(input);
+    if (!info) return false;
+    setCitationStatus('loading', `Reading ${info.platform} post...`, 'Looking for the author, date and post text...');
+
+    let name = '', handle = info.handle, text = '', date = { year: '', monthDay: '' };
+    let dateFromApi = false;
+    const fetched = { name: false, text: false };
+    try {
+        if (info.key === 'bluesky') {
+            const uri = `at://${info.handle}/app.bsky.feed.post/${info.postId}`;
+            const json = await fetchJson(`https://public.api.bsky.app/xrpc/app.bsky.feed.getPostThread?uri=${encodeURIComponent(uri)}&depth=0`);
+            const post = parseBlueskyThread(json);
+            if (post) { name = post.name; handle = post.handle || handle; text = post.text; date = post.date; dateFromApi = !!date.year; }
+        } else if (info.key === 'x') {
+            const json = await fetchJson(`https://publish.twitter.com/oembed?url=${encodeURIComponent(info.url)}&omit_script=1&dnt=true`);
+            const doc = new DOMParser().parseFromString(json.html || '', 'text/html');
+            name = json.author_name || '';
+            text = doc.querySelector('p') ? doc.querySelector('p').textContent : '';
+            const anchors = [...doc.querySelectorAll('a')];
+            const dateText = anchors.length ? anchors[anchors.length - 1].textContent : '';
+            date = parseDateParts(dateText);
+            dateFromApi = !!date.year;
+            if (json.author_url) handle = json.author_url.split('/').filter(Boolean).pop() || handle;
+        } else if (info.key === 'tiktok') {
+            const json = await fetchJson(`https://www.tiktok.com/oembed?url=${encodeURIComponent(info.url)}`);
+            name = json.author_name || ''; text = json.title || '';
+            handle = json.author_unique_id || handle;
+        } else if (info.key === 'reddit') {
+            const json = await fetchJson(`https://www.reddit.com/comments/${encodeURIComponent(info.postId)}.json?raw_json=1&limit=1`);
+            const post = parseRedditJson(json);
+            if (post) { name = post.author; text = post.title; date = post.date; dateFromApi = !!date.year; }
+        } else {
+            const html = await fetchPageHtml(info.url);
+            const meta = html ? parseHtmlMetadata(html, new URL(info.url).hostname) : null;
+            const doc = html ? new DOMParser().parseFromString(html, 'text/html') : null;
+            const og = prop => { const el = doc && doc.querySelector(`meta[property="${prop}"], meta[name="${prop}"]`); return el ? (el.getAttribute('content') || '') : ''; };
+            const insta = info.key === 'instagram' ? parseInstagramDescription(og('og:description')) : null;
+            if (insta) { handle = insta.handle; text = insta.text; date = insta.date; dateFromApi = !!date.year; }
+            else if (meta) { text = og('og:description') || meta.title; if (meta.year) { date = { year: meta.year, monthDay: meta.monthDay }; dateFromApi = true; } }
+            name = meta && meta.author ? meta.author : (/^(.+?)\s+(?:on|\|)\s+/i.exec(og('og:title')) || [])[1] || '';
+            if (info.key === 'reddit') name = '';
+        }
+    } catch (e) {
+        console.warn('Social post lookup failed:', e);
+    }
+
+    name = String(name || '').trim();
+    text = truncateWords(cleanSocialText(text || (info.title ? info.title : '')), 20);
+    fetched.name = !!name;
+    fetched.text = !!text;
+    const idDate = (!date.year && info.postId) ? dateFromSocialId(info.key, info.postId) : { year: '', monthDay: '' };
+    const finalDate = date.year ? date : idDate;
+
+    setCiteTypeFromSource('social');
+    document.getElementById('cite-title').value = text;
+    document.getElementById('cite-authors').value = info.key === 'reddit' ? (name || '') : socialAuthor(name, handle);
+    document.getElementById('cite-year').value = finalDate.year;
+    document.getElementById('cite-monthday').value = finalDate.monthDay;
+    document.getElementById('cite-source').value = info.platform;
+    document.getElementById('cite-descriptor').value = info.descriptor;
+    document.getElementById('cite-doi-url').value = info.url;
+    updateCitationPreview();
+    applyFieldProvenance({
+        'cite-title': fetched.text ? 'found' : 'guess',
+        'cite-authors': fetched.name ? 'found' : 'guess',
+        'cite-year': dateFromApi ? 'found' : 'guess',
+        'cite-source': 'found',
+        'cite-doi-url': 'found'
+    });
+
+    const notes = [];
+    if (!fetched.text) notes.push('add the first 20 words of the post as the title');
+    if (!fetched.name) notes.push(`confirm the author's name${handle ? ` (only the handle @${handle} came from the link)` : ''}`);
+    if (!dateFromApi) notes.push(finalDate.year ? 'check the date (it was worked out from the post ID and is in UTC, so it can be a day off)' : 'add the date');
+    if (info.key !== 'reddit') notes.push('fill in "Attached media" if the post has an image, video or link preview, and describe any emoji in brackets');
+    const complete = fetched.text && fetched.name && dateFromApi;
+    setCitationStatus(complete ? 'success' : 'warning', `${info.platform} Post Recognized`,
+        complete ? 'Found the author, date and text. Check the details below.' : `Please ${notes.join('; ')}.`);
+    showToast('Social media citation generated!');
+    return true;
+}
+
 async function resolveYouTubeUrl(input) {
     let url;
     try { url = new URL(/^https?:\/\//i.test(input) ? input : `https://${input}`); } catch (e) { return false; }
@@ -657,7 +769,7 @@ function populateLaudatoSiCitation(url) {
     updateCitationPreview();
 }
 
-const EXTRA_CITE_FIELDS = ['cite-container', 'cite-editors', 'cite-edition', 'cite-translator', 'cite-descriptor'];
+const EXTRA_CITE_FIELDS = ['cite-container', 'cite-editors', 'cite-edition', 'cite-translator', 'cite-descriptor', 'cite-media'];
 
 function resetExtraCitationFields() {
     EXTRA_CITE_FIELDS.forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
@@ -684,7 +796,7 @@ const CITE_TYPE_CONFIG = {
     dataset:   { source: 'Publisher / Repository', fields: ['edition', 'descriptor'], edition: 'Version (e.g. Version 2.1)' },
     software:  { source: 'Publisher / Developer', fields: ['edition', 'descriptor'], edition: 'Version (e.g. Version 2.1)' },
     podcast:   { source: 'Publisher / Network', fields: ['container', 'edition', 'monthday', 'descriptor'], container: 'Podcast Name', edition: 'Episode (e.g. No. 12)' },
-    social:    { source: 'Platform (e.g. X, Instagram)', fields: ['monthday', 'descriptor'] }
+    social:    { source: 'Platform (e.g. X, Instagram)', fields: ['monthday', 'media', 'descriptor'] }
 };
 
 function handleCiteTypeChange() {
@@ -695,9 +807,9 @@ function handleCiteTypeChange() {
     ['volume', 'issue', 'pages'].forEach(f => show(`cite-wrap-${f}`, cfg.fields.includes(f)));
     show('cite-journal-meta-wrapper', ['volume', 'issue', 'pages'].some(f => cfg.fields.includes(f)), 'grid');
     show('cite-monthday-wrapper', cfg.fields.includes('monthday'));
-    ['container', 'editors', 'edition', 'translator', 'descriptor'].forEach(f => show(`cite-wrap-${f}`, cfg.fields.includes(f)));
+    ['container', 'editors', 'edition', 'translator', 'descriptor', 'media'].forEach(f => show(`cite-wrap-${f}`, cfg.fields.includes(f)));
     show('cite-wrap-retrieved', cfg.fields.includes('retrieved'), 'flex');
-    const anyExtra = ['container', 'editors'].some(f => cfg.fields.includes(f));
+    const anyExtra = ['container', 'editors', 'media'].some(f => cfg.fields.includes(f));
     show('cite-extra-fields', anyExtra || ['edition', 'translator', 'descriptor', 'retrieved'].some(f => cfg.fields.includes(f)), 'grid');
     // Rarely needed options stay folded away unless they already hold a value.
     const optional = ['edition', 'translator', 'descriptor', 'retrieved'];
@@ -762,6 +874,8 @@ function updateCitationPreview() {
         edition: val('cite-edition'),
         translator: val('cite-translator'),
         descriptor: val('cite-descriptor'),
+        media: val('cite-media'),
+        keepCase: type === 'social',
         retrieved: document.getElementById('cite-retrieved-on') && document.getElementById('cite-retrieved-on').checked && CITE_TYPE_CONFIG[type].fields.includes('retrieved') ? val('cite-retrieved-date') : '',
         doi: doiMatch ? `https://doi.org/${doiMatch[1]}` : '',
         url: doiMatch ? '' : (/^(?:www\.)\S+$/i.test(doiUrl) ? `https://${doiUrl}` : doiUrl)

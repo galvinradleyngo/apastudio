@@ -63,10 +63,11 @@
         }
         .apa-table.preview-fixed th,
         .apa-table.preview-fixed td {
-            overflow-wrap: anywhere;
-            word-break: break-word;
-            hyphens: auto;
+            overflow-wrap: break-word;
+            word-break: normal;
         }
+        /* In a fixed layout the stub column gets a larger share so row labels do not break mid-word */
+        .apa-table.preview-fixed th:first-child { width: 30%; }
         .apa-table.preview-compact th,
         .apa-table.preview-compact td {
             font-size: 10pt;
@@ -358,17 +359,16 @@
                                 <i data-lucide="settings-2" class="w-4 h-4 text-blue-600"></i>
                                 1. Table Metadata
                             </h3>
-                            <span class="text-[10px] font-bold uppercase tracking-wider bg-emerald-50 text-emerald-600 border border-emerald-100 px-2.5 py-0.5 rounded-full">Automatic Formatting Active</span>
                         </div>
                         
                         <div class="grid grid-cols-4 gap-4">
                             <div class="col-span-1">
-                                <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Table No.</label>
+                                <label class="block text-xs font-semibold text-slate-600 mb-1">Table no.</label>
                                 <input type="text" id="table-number" value="1" class="w-full border border-slate-200 rounded-xl p-3 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all" oninput="updatePreview()">
                             </div>
                             <div class="col-span-3">
                                 <div class="flex items-center gap-1 mb-1.5">
-                                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider">Table Title (Title Case)</label>
+                                    <label class="block text-xs font-semibold text-slate-600">Table title (title case)</label>
                                     <div class="group relative">
                                         <i data-lucide="help-circle" class="w-3.5 h-3.5 text-slate-400 cursor-pointer"></i>
                                         <span class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-56 p-2.5 bg-slate-900 text-white text-[11px] rounded-lg shadow-lg opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity z-30 leading-normal">
@@ -383,26 +383,26 @@
 
                     <!-- Spreadsheet Table Sandbox -->
                     <div class="space-y-4">
-                        <div class="flex justify-between items-center">
-                            <h3 class="font-bold text-slate-800 text-sm flex items-center gap-2">
+                        <div class="flex flex-wrap justify-between items-center gap-3">
+                            <h3 class="font-bold text-slate-800 text-sm flex items-center gap-2 shrink-0 whitespace-nowrap">
                                 <i data-lucide="edit-3" class="w-4 h-4 text-indigo-600"></i>
                                 2. Populate Grid Data
                             </h3>
                             
                             <!-- Inline Controller buttons -->
-                            <div class="flex items-center gap-1 bg-slate-100 p-1.5 rounded-xl border border-slate-200">
-                                <button onclick="modifyGrid('row', 'add')" class="text-xs font-semibold hover:bg-white text-slate-700 hover:shadow-sm px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5" title="Add Row Below">
-                                    <i data-lucide="plus" class="w-3.5 h-3.5 text-emerald-600"></i> Row
+                            <div class="flex flex-wrap items-center gap-1 bg-slate-100 p-1.5 rounded-xl border border-slate-200">
+                                <button onclick="modifyGrid('row', 'add')" class="text-xs font-semibold hover:bg-white text-slate-700 hover:shadow-sm px-2.5 py-1.5 rounded-lg transition-all flex items-center gap-1 whitespace-nowrap" title="Add Row Below">
+                                    <i data-lucide="plus" class="w-3.5 h-3.5 text-emerald-600"></i> Add row
                                 </button>
-                                <button onclick="modifyGrid('row', 'remove')" class="text-xs font-semibold hover:bg-white text-slate-700 hover:shadow-sm px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5" title="Remove Bottom Row">
-                                    <i data-lucide="minus" class="w-3.5 h-3.5 text-rose-600"></i> Row
+                                <button onclick="modifyGrid('row', 'remove')" class="text-xs font-semibold hover:bg-white text-slate-700 hover:shadow-sm px-2.5 py-1.5 rounded-lg transition-all flex items-center gap-1 whitespace-nowrap" title="Remove Bottom Row">
+                                    <i data-lucide="minus" class="w-3.5 h-3.5 text-rose-600"></i> Remove row
                                 </button>
                                 <div class="w-px h-4 bg-slate-200 mx-1"></div>
-                                <button onclick="modifyGrid('col', 'add')" class="text-xs font-semibold hover:bg-white text-slate-700 hover:shadow-sm px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5" title="Add Column Right">
-                                    <i data-lucide="plus" class="w-3.5 h-3.5 text-emerald-600"></i> Column
+                                <button onclick="modifyGrid('col', 'add')" class="text-xs font-semibold hover:bg-white text-slate-700 hover:shadow-sm px-2.5 py-1.5 rounded-lg transition-all flex items-center gap-1 whitespace-nowrap" title="Add Column Right">
+                                    <i data-lucide="plus" class="w-3.5 h-3.5 text-emerald-600"></i> Add column
                                 </button>
-                                <button onclick="modifyGrid('col', 'remove')" class="text-xs font-semibold hover:bg-white text-slate-700 hover:shadow-sm px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5" title="Remove Last Column">
-                                    <i data-lucide="minus" class="w-3.5 h-3.5 text-rose-600"></i> Column
+                                <button onclick="modifyGrid('col', 'remove')" class="text-xs font-semibold hover:bg-white text-slate-700 hover:shadow-sm px-2.5 py-1.5 rounded-lg transition-all flex items-center gap-1 whitespace-nowrap" title="Remove Last Column">
+                                    <i data-lucide="minus" class="w-3.5 h-3.5 text-rose-600"></i> Remove column
                                 </button>
                             </div>
                         </div>
@@ -443,17 +443,17 @@
                         
                         <div class="space-y-4">
                             <div>
-                                <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">General Note</label>
+                                <label class="block text-xs font-semibold text-slate-600 mb-1">General note</label>
                                 <textarea id="note-general" rows="2" class="w-full border border-slate-200 rounded-xl p-3 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all placeholder-slate-400" placeholder="e.g., N = 150. All values rounded to nearest decimal." oninput="updatePreview()"></textarea>
                             </div>
                             
                             <div class="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Specific Note</label>
+                                    <label class="block text-xs font-semibold text-slate-600 mb-1">Specific note</label>
                                     <textarea id="note-specific" rows="2" class="w-full border border-slate-200 rounded-xl p-3 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all placeholder-slate-400" placeholder="e.g., a Value indicates extreme outlier." oninput="updatePreview()"></textarea>
                                 </div>
                                 <div>
-                                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Probability Note</label>
+                                    <label class="block text-xs font-semibold text-slate-600 mb-1">Probability note</label>
                                     <textarea id="note-prob" rows="2" class="w-full border border-slate-200 rounded-xl p-3 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all placeholder-slate-400" placeholder="e.g., * p < .05. ** p < .01." oninput="updatePreview()"></textarea>
                                 </div>
                             </div>
@@ -470,48 +470,41 @@
                                 </h3>
                                 <span class="text-[10px] font-bold uppercase tracking-wider bg-emerald-50 text-emerald-600 border border-emerald-100 px-2.5 py-0.5 rounded-full">APA 7 Reference List</span>
                             </div>
-                            <textarea id="bibliography-input" rows="14" class="w-full border border-slate-200 rounded-xl p-3 text-sm leading-relaxed focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none transition-all placeholder-slate-400" placeholder="Paste references here. You can paste one per line or as grouped paragraphs."></textarea>
-                            <div class="flex items-center gap-3">
-                                <button onclick="formatBibliography()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2.5 px-4 rounded-xl transition-all duration-200 flex items-center gap-2">
+                            <textarea id="bibliography-input" rows="9" class="w-full border border-slate-200 rounded-xl p-3 text-sm leading-relaxed focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none transition-all placeholder-slate-400" placeholder="Paste references here. You can paste one per line or as grouped paragraphs."></textarea>
+                            <div class="flex flex-wrap items-center gap-2">
+                                <button onclick="formatBibliography()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2.5 px-4 rounded-xl transition-all duration-200 whitespace-nowrap flex items-center gap-2">
                                     <i data-lucide="wand-sparkles" class="w-4 h-4"></i>
                                     Format Bibliography
                                 </button>
-                                <p class="text-xs text-slate-500">Automatically removes list bullets/numbers, arranges entries alphabetically, and applies hanging indent.</p>
-                            </div>
-                            <label class="flex items-start gap-2 text-xs text-slate-600">
-                                <input type="checkbox" id="rebuild-toggle" checked class="mt-0.5 rounded border-slate-300">
-                                <span><strong>Rebuild each entry from its parts</strong> to standardize punctuation, capitalization and italics. Entries that can't be read with confidence are left as typed. Text between *asterisks* is italic.</span>
-                            </label>
-                            <div class="flex items-center gap-3 border-t border-slate-200/60 pt-3">
-                                <label for="reference-file-input" class="cursor-pointer bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs font-semibold py-2 px-3 rounded-xl flex items-center gap-2">
+                                <label for="reference-file-input" class="cursor-pointer bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs font-semibold py-2.5 px-3 whitespace-nowrap rounded-xl flex items-center gap-2">
                                     <i data-lucide="file-up" class="w-4 h-4"></i> Import BibTeX / RIS file
                                 </label>
                                 <input type="file" id="reference-file-input" accept=".bib,.ris,.txt,.enw" class="sr-only" onchange="handleReferenceFileImport(event)">
-                                <p class="text-xs text-slate-500">From Zotero, Mendeley, EndNote or Google Scholar exports. Entries are added to the list above.</p>
                             </div>
-                        </div>
+                            <label class="flex items-start gap-2 text-xs text-slate-600">
+                                <input type="checkbox" id="rebuild-toggle" checked class="mt-0.5 rounded border-slate-300">
+                                <span><strong>Rebuild entries from their parts</strong> (standardizes punctuation, capitalization and italics). Entries that can't be read with confidence stay as typed.</span>
+                            </label>
+                            <p class="text-xs text-slate-500">Removes bullets and numbers, sorts alphabetically and applies hanging indents. Import accepts BibTeX or RIS exports from Zotero, Mendeley or EndNote.</p>
+                                                </div>
 
-                        <div class="bg-slate-50 border border-slate-200/80 rounded-2xl p-5 space-y-3">
-                            <h3 class="font-bold text-slate-800 text-sm flex items-center gap-2">
-                                <i data-lucide="info" class="w-4 h-4 text-sky-600"></i>
-                                APA 7 Applied in This Tool
-                            </h3>
-                            <p class="text-xs text-slate-500 leading-relaxed">
+                        <details class="bg-slate-50 border border-slate-200/80 rounded-2xl px-5 py-3">
+                            <summary class="cursor-pointer font-semibold text-slate-700 text-sm">How the list is formatted</summary>
+                            <div class="pt-2"><p class="text-xs text-slate-500 leading-relaxed">
                                 This formatter applies reference-list structure rules: entries are sorted by first author surname, rendered as double-spaced lines, and displayed with hanging indents suitable for manuscript references.
-                            </p>
-                        </div>
+                            </p></div>
+                        </details>
 
-                        <div class="bg-slate-50 border border-slate-200/80 rounded-2xl p-5 space-y-3">
-                            <h3 class="font-bold text-slate-800 text-sm flex items-center gap-2">
-                                <i data-lucide="list-checks" class="w-4 h-4 text-emerald-600"></i>
-                                2. Check In-Text Citations (optional)
-                            </h3>
+                        <details class="bg-slate-50 border border-slate-200/80 rounded-2xl px-5 py-3">
+                            <summary class="cursor-pointer font-semibold text-slate-700 text-sm">2. Check in-text citations (optional)</summary>
+                            <div class="space-y-3 pt-3">
                             <p class="text-xs text-slate-500 leading-relaxed">Paste your manuscript text (without the reference list) to find citations missing from the list and references that are never cited.</p>
                             <label for="manuscript-input" class="sr-only">Manuscript text</label>
                             <textarea id="manuscript-input" rows="6" placeholder="Paste your paper text here…" class="w-full border border-slate-200 rounded-xl p-3 text-sm focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none bg-white"></textarea>
                             <button type="button" onclick="checkCitationsAgainstReferences()" class="bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs font-semibold py-2 px-3 rounded-xl">Check citations</button>
                             <div id="citation-check-results" class="text-xs text-slate-700 leading-relaxed" aria-live="polite"></div>
                         </div>
+                        </details>
 
                         <div class="bg-amber-50 border border-amber-200 rounded-2xl p-5 space-y-3">
                             <h3 class="font-bold text-amber-900 text-sm flex items-center gap-2">
@@ -585,7 +578,7 @@
                                     <label class="block text-xs font-semibold text-slate-600 mb-1">Web Link or DOI</label>
                                     <div class="flex gap-2">
                                         <input type="text" id="citation-url-input"
-                                            placeholder="e.g. 10.1038/s41586-020-2649-2 or https://..."
+                                            placeholder="DOI, article link, or social media post link"
                                             onkeydown="if(event.key === 'Enter') handleResolveUrl()"
                                             class="flex-1 border border-slate-200 rounded-xl p-3 text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all placeholder-slate-400">
                                         <button onclick="handleResolveUrl()" id="btn-resolve-url"
@@ -645,7 +638,7 @@
                                             <option value="dataset">Dataset</option>
                                             <option value="software">Software / App</option>
                                             <option value="podcast">Podcast Episode</option>
-                                            <option value="social">Social Media Post</option>
+                                            <option value="social">Social Media Post (X, Instagram, TikTok…)</option>
                                             <option value="report">Report / Working Paper</option>
                                             <option value="religious">Religious / Foundational Document</option>
                                         </select>
@@ -703,6 +696,10 @@
                                         <label id="cite-container-label" for="cite-container" class="block text-xs font-semibold text-slate-600 mb-1">Container Title</label>
                                         <input type="text" id="cite-container" oninput="updateCitationPreview()" class="w-full border border-slate-200 rounded-xl p-3 text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all bg-white">
                                     </div>
+                                    <div id="cite-wrap-media" class="hidden md:col-span-2">
+                                        <label for="cite-media" class="block text-xs font-semibold text-slate-600 mb-1">Attached media (optional)</label>
+                                        <input type="text" id="cite-media" placeholder="e.g. Image attached, Video attached, Thumbnail with link attached" oninput="updateCitationPreview()" class="w-full border border-slate-200 rounded-xl p-3 text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all bg-white">
+                                    </div>
                                     <div id="cite-wrap-editors" class="hidden md:col-span-2">
                                         <label for="cite-editors" class="block text-xs font-semibold text-slate-600 mb-1">Editors</label>
                                         <input type="text" id="cite-editors" placeholder="Smith, J. A., & Davis, M." oninput="updateCitationPreview()" class="w-full border border-slate-200 rounded-xl p-3 text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all bg-white">
@@ -759,7 +756,7 @@
                         
                         <div class="flex gap-2 text-xs">
                             <button onclick="toggleGridLineHelper()" class="bg-white border border-slate-200 hover:bg-slate-50 font-semibold px-3 py-1.5 rounded-lg text-slate-600 transition flex items-center gap-1.5">
-                                <i data-lucide="grid" class="w-3.5 h-3.5 text-slate-400"></i> Toggle Canvas Grid
+                                <i data-lucide="grid" class="w-3.5 h-3.5 text-slate-400"></i> Margin guides
                             </button>
                         </div>
                     </div>

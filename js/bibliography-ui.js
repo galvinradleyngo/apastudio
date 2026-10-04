@@ -85,7 +85,14 @@ function renderBibliographyIssues(entries) {
             li.innerText = note;
             fixList.appendChild(li);
         });
-        target.appendChild(fixList);
+        const fixDetails = document.createElement('details');
+        fixDetails.className = 'mb-2';
+        const fixToggle = document.createElement('summary');
+        fixToggle.className = 'cursor-pointer text-[11px] font-semibold text-emerald-700';
+        fixToggle.innerText = 'Show what changed';
+        fixDetails.appendChild(fixToggle);
+        fixDetails.appendChild(fixList);
+        target.appendChild(fixDetails);
     }
 
     const analyzed = entries.map(entry => ({ entry, issues: analyzeReferenceIssues(entry) }));
@@ -116,7 +123,8 @@ function renderBibliographyIssues(entries) {
 
         const heading = document.createElement('p');
         heading.className = 'font-semibold';
-        heading.innerText = `Entry ${index + 1}: ${item.entry.slice(0, 90)}${item.entry.length > 90 ? '...' : ''}`;
+        const shown = stripItalicMarkers(item.entry);
+        heading.innerText = `Entry ${index + 1}: ${shown.slice(0, 90)}${shown.length > 90 ? '...' : ''}`;
         block.appendChild(heading);
 
         const list = document.createElement('ul');
@@ -162,7 +170,8 @@ function replaceBibliographyEntry(oldEntry, newEntry) {
 }
 
 function fixSentenceCaseFor(entry) {
-    replaceBibliographyEntry(entry, sentenceCaseEntry(entry));
+    const clean = stripItalicMarkers(entry);
+    replaceBibliographyEntry(clean, sentenceCaseEntry(clean));
     formatBibliography();
     showToast('Applied sentence case to the title.');
 }
@@ -231,9 +240,13 @@ function handleReferenceFileImport(event) {
     reader.readAsText(file);
 }
 
+// The text box stays free of *asterisks*; the italic markers for formatted entries are remembered here
+// so a second click on Format (or editing one line) keeps the italics the rebuild worked out.
+let bibMarkedLookup = new Map();
+
 function formatBibliography() {
     const rawText = document.getElementById('bibliography-input').value;
-    const parsedEntries = parseBibliographyEntries(rawText);
+    const parsedEntries = parseBibliographyEntries(rawText).map(entry => bibMarkedLookup.get(entry) || entry);
     const rebuildToggle = document.getElementById('rebuild-toggle');
     const rebuild = !rebuildToggle || rebuildToggle.checked;
     const fixedResults = parsedEntries.map(entry => applyBibliographyAutoFix(entry, { rebuild }));
@@ -254,7 +267,8 @@ function formatBibliography() {
         return count + (normalizeReferenceEntry(original) !== fixedEntries[index] ? 1 : 0);
     }, 0);
 
-    document.getElementById('bibliography-input').value = sortedEntries.join('\n');
+    bibMarkedLookup = new Map(sortedEntries.map(entry => [stripItalicMarkers(entry), entry]).filter(([clean, marked]) => clean !== marked));
+    document.getElementById('bibliography-input').value = sortedEntries.map(stripItalicMarkers).join('\n');
     saveBibliographyDraft();
 
     showToast(`Formatted ${sortedEntries.length} reference${sortedEntries.length === 1 ? '' : 's'} in APA 7 style. Auto-fixed ${autoFixedCount}.`);
