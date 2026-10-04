@@ -575,7 +575,7 @@ async function resolveSocialUrl(input) {
     if (!fetched.text) notes.push('add the first 20 words of the post as the title');
     if (!fetched.name) notes.push(`confirm the author's name${handle ? ` (only the handle @${handle} came from the link)` : ''}`);
     if (!dateFromApi) notes.push(finalDate.year ? 'check the date (it was worked out from the post ID and is in UTC, so it can be a day off)' : 'add the date');
-    if (info.key !== 'reddit') notes.push('add a description in brackets if the post has an image or video');
+    if (info.key !== 'reddit') notes.push('fill in "Attached media" if the post has an image, video or link preview, and describe any emoji in brackets');
     const complete = fetched.text && fetched.name && dateFromApi;
     setCitationStatus(complete ? 'success' : 'warning', `${info.platform} Post Recognized`,
         complete ? 'Found the author, date and text. Check the details below.' : `Please ${notes.join('; ')}.`);
@@ -769,7 +769,7 @@ function populateLaudatoSiCitation(url) {
     updateCitationPreview();
 }
 
-const EXTRA_CITE_FIELDS = ['cite-container', 'cite-editors', 'cite-edition', 'cite-translator', 'cite-descriptor'];
+const EXTRA_CITE_FIELDS = ['cite-container', 'cite-editors', 'cite-edition', 'cite-translator', 'cite-descriptor', 'cite-media'];
 
 function resetExtraCitationFields() {
     EXTRA_CITE_FIELDS.forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
@@ -796,7 +796,7 @@ const CITE_TYPE_CONFIG = {
     dataset:   { source: 'Publisher / Repository', fields: ['edition', 'descriptor'], edition: 'Version (e.g. Version 2.1)' },
     software:  { source: 'Publisher / Developer', fields: ['edition', 'descriptor'], edition: 'Version (e.g. Version 2.1)' },
     podcast:   { source: 'Publisher / Network', fields: ['container', 'edition', 'monthday', 'descriptor'], container: 'Podcast Name', edition: 'Episode (e.g. No. 12)' },
-    social:    { source: 'Platform (e.g. X, Instagram)', fields: ['monthday', 'descriptor'] }
+    social:    { source: 'Platform (e.g. X, Instagram)', fields: ['monthday', 'media', 'descriptor'] }
 };
 
 function handleCiteTypeChange() {
@@ -807,9 +807,9 @@ function handleCiteTypeChange() {
     ['volume', 'issue', 'pages'].forEach(f => show(`cite-wrap-${f}`, cfg.fields.includes(f)));
     show('cite-journal-meta-wrapper', ['volume', 'issue', 'pages'].some(f => cfg.fields.includes(f)), 'grid');
     show('cite-monthday-wrapper', cfg.fields.includes('monthday'));
-    ['container', 'editors', 'edition', 'translator', 'descriptor'].forEach(f => show(`cite-wrap-${f}`, cfg.fields.includes(f)));
+    ['container', 'editors', 'edition', 'translator', 'descriptor', 'media'].forEach(f => show(`cite-wrap-${f}`, cfg.fields.includes(f)));
     show('cite-wrap-retrieved', cfg.fields.includes('retrieved'), 'flex');
-    const anyExtra = ['container', 'editors'].some(f => cfg.fields.includes(f));
+    const anyExtra = ['container', 'editors', 'media'].some(f => cfg.fields.includes(f));
     show('cite-extra-fields', anyExtra || ['edition', 'translator', 'descriptor', 'retrieved'].some(f => cfg.fields.includes(f)), 'grid');
     // Rarely needed options stay folded away unless they already hold a value.
     const optional = ['edition', 'translator', 'descriptor', 'retrieved'];
@@ -874,6 +874,7 @@ function updateCitationPreview() {
         edition: val('cite-edition'),
         translator: val('cite-translator'),
         descriptor: val('cite-descriptor'),
+        media: val('cite-media'),
         keepCase: type === 'social',
         retrieved: document.getElementById('cite-retrieved-on') && document.getElementById('cite-retrieved-on').checked && CITE_TYPE_CONFIG[type].fields.includes('retrieved') ? val('cite-retrieved-date') : '',
         doi: doiMatch ? `https://doi.org/${doiMatch[1]}` : '',

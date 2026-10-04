@@ -14,7 +14,13 @@ function looksLikeOrganizationName(name) {
 }
 
 function parseAuthorBlock(rawBlock) {
-    const block = stripItalicMarkers(rawBlock).replace(/\s+/g, ' ').trim();
+    let block = stripItalicMarkers(rawBlock).replace(/\s+/g, ' ').trim();
+    // Podcast hosts: "Glass, I. (Host)." The label is regenerated for podcasts, so just remember it.
+    const hostMatch = block.match(/\s*\((?:Hosts?)\)\.?$/i);
+    if (hostMatch) {
+        const inner = parseAuthorBlock(block.slice(0, hostMatch.index));
+        return inner.ok ? { ...inner, hostLabel: true } : inner;
+    }
     if (!block) return { ok: true, authors: [] };
     // Long list: "A, B., ... Z, Y." (the last author follows an ellipsis).
     const ellipsis = block.split(/,\s*(?:\.\.\.|…|\. \. \.)\s*/);
@@ -76,6 +82,13 @@ function splitTitleSentence(sentence) {
 }
 
 function parseReferenceFields(entry) {
+    const result = parseReferenceFieldsInner(entry);
+    // "(Host)" is only meaningful for podcast episodes; anywhere else the entry is left as typed.
+    if (result.ok && result.item.hostLabel && result.item.type !== 'podcast') return { ok: false, reason: 'unexpected (Host) label' };
+    return result;
+}
+
+function parseReferenceFieldsInner(entry) {
     const original = String(entry || '').replace(/\s+/g, ' ').trim();
     const hasMarkers = original.includes('*');
     let text = original;
@@ -101,6 +114,7 @@ function parseReferenceFields(entry) {
 
     // No author: an italic title sits where the author would be.
     let authors = [];
+    let hostLabel = false;
     let noAuthorTitle = null;
     if (/^\*[^*]+\*\.?$/.test(blockRaw)) {
         noAuthorTitle = blockRaw.replace(/\.$/, '');
@@ -108,6 +122,7 @@ function parseReferenceFields(entry) {
         const parsedAuthors = parseAuthorBlock(blockRaw);
         if (!parsedAuthors.ok) return fail(parsedAuthors.reason);
         authors = parsedAuthors.authors;
+        hostLabel = !!parsedAuthors.hostLabel;
     }
 
     let titleSentence;
@@ -138,10 +153,12 @@ function parseReferenceFields(entry) {
     // keepCase: rebuilding fixes punctuation and italics but never rewrites the capitalization the author typed
     // (sentence-case problems are flagged separately with a one-click fix).
     const item = { type: 'report', keepCase: true, title, authors, year, monthDay: '', source: '', volume: '', issue: '', pages: '', container: '', editors: '',
-        edition: '', translator: '', descriptor: '', doi, url, retrieved };
+        edition: '', translator: '', descriptor: '', doi, url, retrieved, hostLabel };
 
     const paren = parens[0] || '';
-    const bracket = brackets[0] || '';
+    // Two brackets mean [attached media] [kind of post]; otherwise the single bracket names the type.
+    const bracket = brackets[brackets.length - 1] || '';
+    const media = brackets.length > 1 ? brackets[0] : '';
 
     // 1. Chapter in an edited book
     const chapter = remainder.match(/^In\s+(.+?)\s*\((Eds?)\.\),?\s+(.+?)(?:\s+\(([^)]*)\))?\.(?:\s+(.*))?$/);
@@ -160,6 +177,11 @@ function parseReferenceFields(entry) {
 
     // 2. Types announced by a [descriptor]
     if (bracket) {
+        if (brackets.length === 2) {
+            Object.assign(item, { type: 'social', descriptor: bracket, media, monthDay, source: plainRemainder() });
+            item.keepCase = true;
+            return { ok: true, item, hasMarkers };
+        }
         const thesis = bracket.match(/^((?:Doctoral dissertation|Master['’]s thesis|[^,]*(?:thesis|dissertation)[^,]*)),\s*(.+)$/i);
         if (thesis) {
             Object.assign(item, { type: 'thesis', descriptor: thesis[1], source: thesis[2].trim() });
@@ -173,7 +195,7 @@ function parseReferenceFields(entry) {
             item.type = 'podcast';
         } else if (/^Encyclical$/i.test(bracket)) {
             item.type = 'religious';
-        } else if (/^(?:Social media post|Post|Tweet|Facebook post|Instagram (?:post|photograph|video)|LinkedIn post|Online forum post)$/i.test(bracket) && /\[@[^\]]+\]|^@/.test(blockRaw) || /^(?:Social media post|Online forum post)$/i.test(bracket)) {
+        } else if (/^(?:Social media post|Post|Tweet|Status update|Photograph|Facebook post|Instagram (?:post|photograph|video)|LinkedIn post|Online forum post)$/i.test(bracket) && /\[@[^\]]+\]|^@/.test(blockRaw) || /^(?:Social media post|Online forum post)$/i.test(bracket)) {
             item.type = 'social';
             item.descriptor = bracket;
         } else {

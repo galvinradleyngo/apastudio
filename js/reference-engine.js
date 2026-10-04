@@ -978,7 +978,8 @@ function generateApaReference(item) {
     }
 
     const typedTitle = clean(item.title) || 'Untitled document';
-    const title = (item.keepCase ? typedTitle : toSentenceCase(typedTitle, item.preserve)).replace(/\.+$/, '');
+    // A post's own wording, capitalization and punctuation are reproduced exactly (APA 7), so its final period stays.
+    const title = (item.keepCase ? typedTitle : toSentenceCase(typedTitle, item.preserve)).replace(type === 'social' ? /^$/ : /\.+$/, '');
     const endsInQuestion = /[?!]$/.test(title);
     const siteName = clean(item.source);
     const doiUrl = item.doi
@@ -997,15 +998,21 @@ function generateApaReference(item) {
     const parenStr = parenParts.length ? `(${parenParts.join('; ')})` : '';
 
     const descText = clean(item.descriptor).replace(/^\[|\]$/g, '') || DEFAULT_DESCRIPTORS[type] || '';
+    // Social posts take two brackets: the attached media first, then the kind of post (APA 7).
+    const mediaText = type === 'social' ? clean(item.media).replace(/^\[|\]$/g, '') : '';
     let bracketStr = '';
     if (descText) bracketStr = type === 'thesis' && siteName ? `[${descText}, ${siteName}]` : `[${descText}]`;
+    if (mediaText) bracketStr = `[${mediaText}]${bracketStr ? ' ' + bracketStr : ''}`;
 
     const titleCore = italicTitle ? `*${title}*` : title;
     const tail = [parenStr, bracketStr].filter(Boolean).join(' ');
-    const titleSeg = tail ? `${titleCore} ${tail}.` : (endsInQuestion ? titleCore : `${titleCore}.`);
+    const titleSeg = tail ? `${titleCore} ${tail}.` : (endsInQuestion || (type === 'social' && /[.]$/.test(title)) ? titleCore : `${titleCore}.`);
 
-    const head = authorsStr
-        ? `${authorsStr}${/\.$/.test(authorsStr) ? '' : '.'} ${dateStr} ${titleSeg}`
+    // APA 7 marks podcast hosts: "Glass, I. (Host)." / "Glass, I., & Lee, S. (Hosts)."
+    const hostCount = type === 'podcast' ? (item.authors || []).filter(a => typeof a === 'string' || a.family).length : 0;
+    const authorsLabel = hostCount && authorsStr ? `${authorsStr.replace(/\.$/, '')}${/\.$/.test(authorsStr) ? '.' : ''} (${hostCount > 1 ? 'Hosts' : 'Host'})` : authorsStr;
+    const head = authorsLabel
+        ? `${authorsLabel}${/\.$/.test(authorsLabel) ? '' : '.'} ${dateStr} ${titleSeg}`
         : `${titleSeg} ${dateStr}`;
 
     let container = '';
@@ -1052,7 +1059,7 @@ function generateApaReference(item) {
 }
 const DEFAULT_DESCRIPTORS = {
     religious: 'Encyclical', video: 'Video', thesis: 'Doctoral dissertation', dataset: 'Data set',
-    software: 'Computer software', podcast: 'Audio podcast episode', social: 'Social media post'
+    software: 'Computer software', podcast: 'Audio podcast episode', social: 'Post'
 };
 
 function formatLongDate(d) {

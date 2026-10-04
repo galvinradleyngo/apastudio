@@ -65,10 +65,10 @@ const check = async (name, fn) => { try { await fn(); console.log('ok  -', name)
   });
   await check('generator: podcast episode', async () => assert.strictEqual(
     await ref({ ...base, monthDay: 'May 3', type: 'podcast', title: 'Sleep science', authors: ['Lee, S.'], edition: 'No. 12', container: 'Mind Matters', source: 'Radio One' }),
-    'Lee, S. (2024, May 3). *Sleep science* (No. 12) [Audio podcast episode]. In *Mind Matters*. Radio One.'));
+    'Lee, S. (Host). (2024, May 3). *Sleep science* (No. 12) [Audio podcast episode]. In *Mind Matters*. Radio One.'));
   await check('generator: social post keeps handle', async () => assert.strictEqual(
     await ref({ ...base, monthDay: 'June 1', type: 'social', title: 'Big news today', authors: [{ name: 'Jane Doe [@janedoe]' }], source: 'X', url: 'https://x.com/p/1' }),
-    'Jane Doe [@janedoe]. (2024, June 1). *Big news today* [Social media post]. X. https://x.com/p/1'));
+    'Jane Doe [@janedoe]. (2024, June 1). *Big news today* [Post]. X. https://x.com/p/1'));
   await check('generator: retrieval date only for URLs', async () => {
     assert.strictEqual(await ref({ ...base, type: 'webpage', title: 'Live dashboard', authors: [{ name: 'Agency' }], source: 'Agency Site', retrieved: 'October 3, 2026', url: 'https://a.gov/d' }),
       'Agency. (2024). *Live dashboard*. Agency Site. Retrieved October 3, 2026, from https://a.gov/d');
@@ -290,6 +290,23 @@ const check = async (name, fn) => { try { await fn(); console.log('ok  -', name)
       return { shown: el.style.display !== 'none', closedWhenEmpty, openWhenFilled: el.open };
     });
     assert.ok(r.shown && r.closedWhenEmpty && r.openWhenFilled, JSON.stringify(r));
+  });
+  await check('social type shows the "Attached media" field and builds the two-bracket reference', async () => {
+    const r = await page.evaluate(() => {
+      resetCitationForm();
+      setCiteTypeFromSource('social');
+      const shown = document.getElementById('cite-wrap-media').offsetParent !== null;
+      document.getElementById('cite-title').value = 'Open house this Saturday';
+      document.getElementById('cite-authors').value = 'Acme Library';
+      document.getElementById('cite-year').value = '2024'; document.getElementById('cite-monthday').value = 'March 5';
+      document.getElementById('cite-source').value = 'Facebook'; document.getElementById('cite-descriptor').value = 'Status update';
+      document.getElementById('cite-media').value = 'Image attached';
+      document.getElementById('cite-doi-url').value = 'https://www.facebook.com/acme/posts/1';
+      updateCitationPreview();
+      return { shown, ref: currentCitationPlain };
+    });
+    assert.ok(r.shown);
+    assert.strictEqual(r.ref, 'Acme Library. (2024, March 5). Open house this Saturday [Image attached] [Status update]. Facebook. https://www.facebook.com/acme/posts/1');
   });
   await check('chapter with no container does not print a dangling "In."', async () => {
     const out = await page.evaluate(() => generateApaReference({ type: 'chapter', title: 'A chapter', authors: ['Doe, J.'], year: '2020', source: 'Press' }).marked);

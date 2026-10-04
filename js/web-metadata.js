@@ -278,11 +278,11 @@ function parseHtmlMetadata(htmlString, hostname) {
 // (platform, account handle, post id, even an approximate date from the id).
 const SOCIAL_PLATFORMS = {
     x: { platform: 'X', descriptor: 'Post', hosts: ['x.com', 'twitter.com', 'mobile.twitter.com'] },
-    instagram: { platform: 'Instagram', descriptor: 'Instagram post', hosts: ['instagram.com'] },
-    facebook: { platform: 'Facebook', descriptor: 'Facebook post', hosts: ['facebook.com', 'm.facebook.com', 'fb.com'] },
+    instagram: { platform: 'Instagram', descriptor: 'Photograph', hosts: ['instagram.com'] },
+    facebook: { platform: 'Facebook', descriptor: 'Status update', hosts: ['facebook.com', 'm.facebook.com', 'fb.com'] },
     tiktok: { platform: 'TikTok', descriptor: 'Video', hosts: ['tiktok.com'] },
     reddit: { platform: 'Reddit', descriptor: 'Online forum post', hosts: ['reddit.com', 'old.reddit.com'] },
-    linkedin: { platform: 'LinkedIn', descriptor: 'LinkedIn post', hosts: ['linkedin.com'] },
+    linkedin: { platform: 'LinkedIn', descriptor: 'Post', hosts: ['linkedin.com'] },
     threads: { platform: 'Threads', descriptor: 'Post', hosts: ['threads.net', 'threads.com'] },
     bluesky: { platform: 'Bluesky', descriptor: 'Post', hosts: ['bsky.app'] }
 };
@@ -334,7 +334,12 @@ function parseSocialUrl(urlStr) {
     const clean = new URL(url.href);
     clean.hash = '';
     if (key !== 'facebook') clean.search = '';
-    return { key, ...SOCIAL_PLATFORMS[key], handle, postId, title, url: clean.href.replace(/\/$/, '') };
+    // APA's second bracket names the kind of content: [Photograph] or [Video] on Instagram, [Status update], [Photograph] or [Video] on Facebook.
+    let descriptor = SOCIAL_PLATFORMS[key].descriptor;
+    if (key === 'instagram' && parts.some(p => /^(?:reel|reels|tv)$/i.test(p))) descriptor = 'Video';
+    if (key === 'facebook' && parts.some(p => /^(?:videos|reel)$/i.test(p))) descriptor = 'Video';
+    if (key === 'facebook' && parts.includes('photos')) descriptor = 'Photograph';
+    return { key, ...SOCIAL_PLATFORMS[key], descriptor, handle, postId, title, url: clean.href.replace(/\/$/, '') };
 }
 
 // Twitter/X, TikTok and Instagram ids embed the posting time, which gives a date even when the page cannot be read.
