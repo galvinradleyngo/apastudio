@@ -821,7 +821,7 @@ function toTitleCase(text) {
 }
 
 function isCorporateAuthor(name) {
-    return /\b(organization|department|ministry|institute|association|agency|commission|committee|university|college|corporation|center|centre|foundation|group|council|team|society|office|bureau|press|gov|inc|llc|ltd|plc|gmbh|corp|company|unicef|unesco)\b/i.test(name);
+    return /\b(organization|department|ministry|institute|association|agency|commission|committee|university|college|corporation|center|centre|foundation|group|council|team|society|office|bureau|press|gov|inc|llc|ltd|plc|gmbh|corp|company|unicef|unesco|library|libraries|museum|hospital|clinic|school|schools|academy|club|network|studio|studios|media|bank|lab|labs|laboratory|project|initiative|alliance|coalition|federation|union|league|board|authority|administration|service|services|partnership|trust|fund|program|programme|forum|consortium|collective|magazine|news|radio|television|publishing|publications?|observatory|society|ministry|government|municipality|city|county|state|national|international|global)\b/i.test(name);
 }
 
 function parseAuthorsInput(raw) {

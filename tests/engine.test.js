@@ -191,6 +191,13 @@ check('social reference: generated, parsed back and cited by surname', () => {
   assert.strictEqual(run("generateApaReference({ type: 'social', keepCase: true, title: 'WOW #Win ALL CAPS', authors: [], year: '2024', source: 'X' }).marked").includes('WOW #Win ALL CAPS'), true);
 });
 
+check('organization names with words like Library or Museum stay as one author', () => {
+  for (const name of ['Acme Library', 'City Museum', 'Open Science Network']) {
+    assert.strictEqual(run('JSON.stringify(parseAuthorsInput(__v.n))', { n: name }), JSON.stringify([{ name }]));
+  }
+  assert.strictEqual(run("JSON.stringify(parseAuthorsInput('Jane Doe'))"), JSON.stringify([{ family: 'Doe', given: 'Jane' }]));
+});
+
 // ── APA 7: podcast hosts ────────────────────────────────────────────────────
 check('APA 7: podcast authors are labelled (Host) / (Hosts) and round-trip', () => {
   const one = gen({ type: 'podcast', year: '2024', monthDay: 'May 3', title: 'Sleep science', authors: [{ family: 'Lee', given: 'S.' }], edition: 'No. 12', container: 'Mind Matters', source: 'Radio One', url: 'https://r.org/12' });
