@@ -906,7 +906,11 @@ function formatInTextCitation(authors, year) {
         if (typeof a === 'string') {
             return a.split(',')[0].trim().split(/\s+/).pop();
         }
-        if (a.name) return a.name.replace(/\s*\[@[^\]]+\]/, '');
+        if (a.name) {
+            // "Doe, J. [@janedoe]" (a social account) is cited by surname: (Doe, 2024)
+            const name = a.name.replace(/\s*\[@[^\]]+\]/, '').trim();
+            return /^[^,]+,\s*\p{Lu}\./u.test(name) ? name.split(',')[0].trim() : name;
+        }
         return a.family || a.familyName || 'Author';
     }).filter(Boolean);
 

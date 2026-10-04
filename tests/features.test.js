@@ -211,6 +211,49 @@ const check = async (name, fn) => { try { await fn(); console.log('ok  -', name)
     assert.ok(xml.includes('N = 250.') && /<w:i\/>[^]*?<w:t[^>]*>p<\/w:t>/.test(xml), 'notes with italic p');
   });
 
+  // ── Social media links (network mocked) ──────────────────────────────────
+  const cors = { 'access-control-allow-origin': '*', 'content-type': 'application/json' };
+  const readCitationFields = () => page.evaluate(() => {
+    const v = id => document.getElementById(id).value;
+    return { type: v('cite-type'), title: v('cite-title'), authors: v('cite-authors'), year: v('cite-year'), monthDay: v('cite-monthday'),
+      source: v('cite-source'), descriptor: v('cite-descriptor'), url: v('cite-doi-url'), ref: currentCitationPlain,
+      status: document.getElementById('citation-status-title').innerText };
+  });
+  await check('social link (X): author, date and first 20 words are filled in', async () => {
+    await page.route('**/publish.twitter.com/oembed**', r => r.fulfill({ status: 200, headers: cors, body: JSON.stringify({
+      author_name: 'Jane Doe', author_url: 'https://twitter.com/janedoe',
+      html: '<blockquote class="twitter-tweet"><p lang="en" dir="ltr">Big news today for sleep research https://t.co/abc123</p>&mdash; Jane Doe (@janedoe) <a href="https://twitter.com/janedoe/status/1766000000000000000">March 5, 2024</a></blockquote>' }) }));
+    await page.evaluate(() => resolveWebOrDoi('https://twitter.com/janedoe/status/1766000000000000000?s=20'));
+    const f = await readCitationFields();
+    assert.strictEqual(f.type, 'social'); assert.strictEqual(f.authors, 'Doe, J. [@janedoe]'); assert.strictEqual(f.title, 'Big news today for sleep research');
+    assert.strictEqual(f.year, '2024'); assert.strictEqual(f.monthDay, 'March 5'); assert.strictEqual(f.source, 'X'); assert.strictEqual(f.descriptor, 'Post');
+    assert.strictEqual(f.url, 'https://twitter.com/janedoe/status/1766000000000000000');
+    assert.strictEqual(f.ref, 'Doe, J. [@janedoe]. (2024, March 5). Big news today for sleep research [Post]. X. https://twitter.com/janedoe/status/1766000000000000000');
+    assert.ok(/Post Recognized/.test(f.status));
+  });
+  await check('social link (Bluesky and Reddit) use their public APIs', async () => {
+    await page.route('**/public.api.bsky.app/**', r => r.fulfill({ status: 200, headers: cors, body: JSON.stringify({ thread: { post: { author: { displayName: 'Jane Doe', handle: 'jane.bsky.social' }, record: { text: 'Hello from the sky', createdAt: '2024-03-05T10:00:00.000Z' } } } }) }));
+    await page.evaluate(() => resolveWebOrDoi('https://bsky.app/profile/jane.bsky.social/post/3kabc'));
+    let f = await readCitationFields();
+    assert.strictEqual(f.authors, 'Doe, J. [@jane.bsky.social]'); assert.strictEqual(f.title, 'Hello from the sky'); assert.strictEqual(f.source, 'Bluesky');
+    await page.route('**/www.reddit.com/comments/**', r => r.fulfill({ status: 200, headers: cors, body: JSON.stringify([{ data: { children: [{ data: { author: 'sleepy_user', title: 'Why we sleep matters', subreddit: 'psychology', created_utc: 1709640000 } }] } }]) }));
+    await page.evaluate(() => resolveWebOrDoi('https://www.reddit.com/r/psychology/comments/abc123/why_we_sleep_matters/'));
+    f = await readCitationFields();
+    assert.strictEqual(f.authors, 'sleepy_user'); assert.strictEqual(f.title, 'Why we sleep matters'); assert.strictEqual(f.descriptor, 'Online forum post'); assert.strictEqual(f.source, 'Reddit');
+    assert.ok(/^sleepy_user\. \(2024, March 5\)\. Why we sleep matters \[Online forum post\]\. Reddit\./.test(f.ref), f.ref);
+  });
+  await check('social link when nothing can be fetched: still builds a draft from the link and flags the gaps', async () => {
+    await page.unroute('**/publish.twitter.com/oembed**');
+    await page.route('**/publish.twitter.com/**', r => r.abort());
+    await page.route(/allorigins|corsproxy/, r => r.abort());
+    const id = await page.evaluate(() => String((BigInt(Date.UTC(2024, 2, 5, 12, 0, 0) - 1288834974657)) << 22n));
+    await page.evaluate(i => resolveWebOrDoi(`https://x.com/janedoe/status/${i}`), id);
+    const f = await readCitationFields();
+    assert.strictEqual(f.authors, '@janedoe'); assert.strictEqual(f.year, '2024'); assert.strictEqual(f.monthDay, 'March 5'); assert.strictEqual(f.source, 'X');
+    const warning = await page.evaluate(() => document.getElementById('citation-status-desc').innerText);
+    assert.ok(/first 20 words/.test(warning) && /UTC/.test(warning), warning);
+  });
+
   // ── Citation generator layout ────────────────────────────────────────────
   await check('citation workspace opens empty on the Web Link tab with a two-pane layout', async () => {
     const r = await page.evaluate(() => {

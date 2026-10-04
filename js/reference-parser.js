@@ -10,7 +10,7 @@ const PUBLISHER_WORDS_RE = /\b(?:Inc|Press|Publishers?|Publishing|Books|Ltd|LLC|
 function looksLikeOrganizationName(name) {
     const words = name.split(/\s+/).filter(Boolean);
     if (!words.length || words.length > 7) return false;
-    return words.filter(w => !/^(?:of|for|and|the|in|on|de|la|&)$/i.test(w)).every(w => /^[\p{Lu}0-9]/u.test(w));
+    return words.filter(w => !/^(?:of|for|and|the|in|on|de|la|&)$/i.test(w)).every(w => /^[\p{Lu}0-9@]/u.test(w));
 }
 
 function parseAuthorBlock(rawBlock) {
@@ -173,12 +173,13 @@ function parseReferenceFields(entry) {
             item.type = 'podcast';
         } else if (/^Encyclical$/i.test(bracket)) {
             item.type = 'religious';
-        } else if (/^Social media post$/i.test(bracket)) {
+        } else if (/^(?:Social media post|Post|Tweet|Facebook post|Instagram (?:post|photograph|video)|LinkedIn post|Online forum post)$/i.test(bracket) && /\[@[^\]]+\]|^@/.test(blockRaw) || /^(?:Social media post|Online forum post)$/i.test(bracket)) {
             item.type = 'social';
+            item.descriptor = bracket;
         } else {
             item.descriptor = bracket;
         }
-        if (item.type !== 'thesis' && item.type !== 'report') item.descriptor = '';
+        if (!['thesis', 'report', 'social'].includes(item.type)) item.descriptor = '';
         if (item.type === 'podcast') {
             const pod = stripItalicMarkers(remainder).match(/^In\s+(.+?)\.\s*(.*)$/);
             if (pod) { item.container = pod[1].trim(); item.source = pod[2].replace(/\.$/, '').trim(); }

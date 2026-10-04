@@ -36,6 +36,7 @@ A modern, browser-based academic formatting workspace for researchers, educators
 - Tests: `node tests/home-and-draft.test.js`.
 
 ## More features
+- **Social media links:** paste a post link from X, Instagram, Facebook, TikTok, Reddit, LinkedIn, Threads or Bluesky. The generator reads the author, date and post text where the platform allows it (X, Bluesky, Reddit and TikTok via public endpoints, others from page metadata), uses the first 20 words as the title, formats the author as `Doe, J. [@handle]`, and keeps the post's own capitalization. If a post can't be read, it still fills in the platform and handle from the link, works out an approximate date from the post ID on X, TikTok and Instagram, and lists what to complete.
 - **Source types:** journal article, book (edition, translator), book chapter (editors, pages), webpage (optional retrieval date), news/blog article, video, podcast episode, social post, thesis, dataset, software, report, religious/foundational document.
 - **Bibliography tools:** en-dash page ranges, automatic a/b year suffixes for same-author same-year works, one-click sentence-case fixes for flagged titles, BibTeX/RIS import, and an in-text citation vs reference-list check.
 - **Export:** the bibliography, single citations and tables all download as real `.docx` files (Times New Roman; references use real Word styles (Heading 1 for "References" and a "Reference" paragraph style with the hanging indent) so you can restyle the whole list in Word, plus italics; APA rules-only borders and notes for tables).

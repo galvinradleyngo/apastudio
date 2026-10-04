@@ -272,3 +272,148 @@ function parseHtmlMetadata(htmlString, hostname) {
         return null;
     }
 }
+
+// ── Social media posts ──────────────────────────────────────────────────────
+// Recognizes post links from the main platforms and works out what the link itself reveals
+// (platform, account handle, post id, even an approximate date from the id).
+const SOCIAL_PLATFORMS = {
+    x: { platform: 'X', descriptor: 'Post', hosts: ['x.com', 'twitter.com', 'mobile.twitter.com'] },
+    instagram: { platform: 'Instagram', descriptor: 'Instagram post', hosts: ['instagram.com'] },
+    facebook: { platform: 'Facebook', descriptor: 'Facebook post', hosts: ['facebook.com', 'm.facebook.com', 'fb.com'] },
+    tiktok: { platform: 'TikTok', descriptor: 'Video', hosts: ['tiktok.com'] },
+    reddit: { platform: 'Reddit', descriptor: 'Online forum post', hosts: ['reddit.com', 'old.reddit.com'] },
+    linkedin: { platform: 'LinkedIn', descriptor: 'LinkedIn post', hosts: ['linkedin.com'] },
+    threads: { platform: 'Threads', descriptor: 'Post', hosts: ['threads.net', 'threads.com'] },
+    bluesky: { platform: 'Bluesky', descriptor: 'Post', hosts: ['bsky.app'] }
+};
+
+function parseSocialUrl(urlStr) {
+    let url;
+    try { url = new URL(/^https?:\/\//i.test(urlStr) ? urlStr : `https://${urlStr}`); } catch (e) { return null; }
+    const host = url.hostname.replace(/^www\./i, '').toLowerCase();
+    const key = Object.keys(SOCIAL_PLATFORMS).find(k => SOCIAL_PLATFORMS[k].hosts.includes(host));
+    if (!key) return null;
+    const parts = url.pathname.split('/').filter(Boolean).map(p => { try { return decodeURIComponent(p); } catch (e) { return p; } });
+    let handle = '', postId = '', title = '';
+    const at = i => (parts[i] || '').replace(/^@/, '');
+
+    if (key === 'x') {
+        const i = parts.indexOf('status');
+        if (i < 1 || /^(?:i|web|intent)$/i.test(parts[0])) return null;
+        handle = at(0); postId = (parts[i + 1] || '').replace(/\D/g, '');
+    } else if (key === 'instagram') {
+        const i = parts.findIndex(p => /^(?:p|reel|reels|tv)$/i.test(p));
+        if (i < 0) return null;
+        handle = i > 0 ? at(0) : ''; postId = parts[i + 1] || '';
+    } else if (key === 'facebook') {
+        const i = parts.findIndex(p => /^(?:posts|videos|photos|reel)$/i.test(p));
+        if (i < 0 && !/permalink|story\.php/.test(url.pathname)) return null;
+        handle = i > 0 && !/^(?:groups|watch|permalink\.php|story\.php)$/i.test(parts[0]) ? at(0) : ''; postId = (parts[i + 1] || url.searchParams.get('story_fbid') || '');
+    } else if (key === 'tiktok') {
+        const i = parts.indexOf('video');
+        if (i < 1 || !parts[0].startsWith('@')) return null;
+        handle = at(0); postId = (parts[i + 1] || '').replace(/\D/g, '');
+    } else if (key === 'reddit') {
+        const i = parts.indexOf('comments');
+        if (i < 0) return null;
+        postId = parts[i + 1] || ''; title = (parts[i + 2] || '').replace(/_/g, ' ');
+    } else if (key === 'linkedin') {
+        const i = parts.indexOf('posts');
+        if (i < 0 || !parts[i + 1]) return null;
+        handle = parts[i + 1].split('_')[0]; postId = (parts[i + 1].match(/activity-(\d+)/) || [])[1] || '';
+    } else if (key === 'threads') {
+        const i = parts.indexOf('post');
+        if (i < 1 || !parts[0].startsWith('@')) return null;
+        handle = at(0); postId = parts[i + 1] || '';
+    } else if (key === 'bluesky') {
+        const i = parts.indexOf('post');
+        if (parts[0] !== 'profile' || i < 2) return null;
+        handle = parts[1]; postId = parts[i + 1] || '';
+    }
+    // Keep the address clean: no tracking parameters, no fragment (Facebook needs its id parameters).
+    const clean = new URL(url.href);
+    clean.hash = '';
+    if (key !== 'facebook') clean.search = '';
+    return { key, ...SOCIAL_PLATFORMS[key], handle, postId, title, url: clean.href.replace(/\/$/, '') };
+}
+
+// Twitter/X, TikTok and Instagram ids embed the posting time, which gives a date even when the page cannot be read.
+// The date is in UTC, so it can differ by a day from the poster's local date: callers mark it as a guess.
+function dateFromSocialId(key, postId) {
+    try {
+        let ms;
+        if (key === 'x' && /^\d{15,20}$/.test(postId)) ms = Number((BigInt(postId) >> 22n) + 1288834974657n);
+        else if (key === 'tiktok' && /^\d{15,20}$/.test(postId)) ms = Number(BigInt(postId) >> 32n) * 1000;
+        else if (key === 'instagram' && /^[A-Za-z0-9_-]{8,12}$/.test(postId)) {
+            const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
+            let id = 0n;
+            for (const ch of postId) id = id * 64n + BigInt(alphabet.indexOf(ch));
+            ms = Number((id >> 23n) + 1314220021721n);
+        } else return { year: '', monthDay: '' };
+        const d = new Date(ms);
+        if (isNaN(d) || d.getUTCFullYear() < 2005 || d.getTime() > Date.now() + 86400000) return { year: '', monthDay: '' };
+        return { year: String(d.getUTCFullYear()), monthDay: `${MONTH_NAMES[d.getUTCMonth()]} ${d.getUTCDate()}` };
+    } catch (e) {
+        return { year: '', monthDay: '' };
+    }
+}
+
+function truncateWords(text, count = 20) {
+    const words = String(text || '').replace(/\s+/g, ' ').trim().split(' ').filter(Boolean);
+    return words.slice(0, count).join(' ');
+}
+
+function cleanSocialText(text) {
+    return String(text || '')
+        .replace(/https?:\/\/t\.co\/\w+/g, '')
+        .replace(/pic\.(?:twitter|x)\.com\/\w+/g, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
+// "Doe, J. [@janedoe]" for people, "NASA [@NASA]" for organizations, "@handle" when only the handle is known.
+function socialAuthor(displayName, handle) {
+    const h = String(handle || '').replace(/^@/, '').trim();
+    const name = String(displayName || '').replace(/\s+/g, ' ').trim();
+    if (!name) return h ? `@${h}` : '';
+    const tag = h ? ` [@${h}]` : '';
+    const words = name.split(' ');
+    const looksLikePerson = words.length >= 2 && words.length <= 4
+        && words.every(w => /^\p{Lu}[\p{L}'’.\-]*$/u.test(w)) && !isCorporateAuthor(name);
+    if (looksLikePerson) {
+        const family = words[words.length - 1];
+        const initials = words.slice(0, -1).map(w => `${w[0].toUpperCase()}.`).join(' ');
+        return `${family}, ${initials}${tag}`;
+    }
+    return `${name}${tag}`;
+}
+
+// Instagram's og:description reads: 1,234 likes, 5 comments - username on March 5, 2024: "caption".
+function parseInstagramDescription(desc) {
+    const m = String(desc || '').match(/-\s*([\w.]+)\s+on\s+([A-Z][a-z]+\s+\d{1,2},\s+\d{4}):\s*["“]([\s\S]*?)["”]\.?\s*$/);
+    if (!m) return null;
+    return { handle: m[1], date: parseDateParts(m[2]), text: m[3] };
+}
+
+function parseRedditJson(json) {
+    const post = json && json[0] && json[0].data && json[0].data.children && json[0].data.children[0] && json[0].data.children[0].data;
+    if (!post) return null;
+    const d = post.created_utc ? new Date(post.created_utc * 1000) : null;
+    return {
+        author: post.author && post.author !== '[deleted]' ? post.author : '',
+        title: post.title || '',
+        subreddit: post.subreddit || '',
+        date: d ? { year: String(d.getUTCFullYear()), monthDay: `${MONTH_NAMES[d.getUTCMonth()]} ${d.getUTCDate()}` } : { year: '', monthDay: '' }
+    };
+}
+
+function parseBlueskyThread(json) {
+    const post = json && json.thread && json.thread.post;
+    if (!post || !post.record) return null;
+    return {
+        name: (post.author && post.author.displayName) || '',
+        handle: (post.author && post.author.handle) || '',
+        text: post.record.text || '',
+        date: parseDateParts(post.record.createdAt || '')
+    };
+}
