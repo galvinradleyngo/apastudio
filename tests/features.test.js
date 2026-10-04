@@ -254,6 +254,28 @@ const check = async (name, fn) => { try { await fn(); console.log('ok  -', name)
     assert.ok(/first 20 words/.test(warning) && /UTC/.test(warning), warning);
   });
 
+  await check('YouTube link: title, channel and upload date are filled in', async () => {
+    const vid = 'dQw4w9WgXcQ';
+    await page.route('**/www.youtube.com/oembed**', r => r.fulfill({ status: 200, headers: cors, body: JSON.stringify({ title: 'How Sleep Shapes Memory', author_name: 'Mark Rober', author_url: 'https://www.youtube.com/@markrober' }) }));
+    await page.route(`**/www.youtube.com/watch?v=${vid}`, r => r.fulfill({ status: 200, headers: { 'access-control-allow-origin': '*', 'content-type': 'text/html' }, body: '<html><head><title>x</title><meta itemprop="datePublished" content="2024-03-05T08:00:00-08:00"></head></html>' }));
+    await page.evaluate(v => resolveWebOrDoi(`https://youtu.be/${v}?si=tracking`), vid);
+    const f = await readCitationFields();
+    assert.strictEqual(f.type, 'video'); assert.strictEqual(f.authors, 'Rober, M.'); assert.strictEqual(f.year, '2024'); assert.strictEqual(f.monthDay, 'March 5');
+    assert.strictEqual(f.title, 'How sleep shapes memory'); assert.strictEqual(f.url, `https://www.youtube.com/watch?v=${vid}`);
+    assert.strictEqual(f.ref, `Rober, M. (2024, March 5). How sleep shapes memory [Video]. YouTube. https://www.youtube.com/watch?v=${vid}`);
+    assert.ok(/Found the title, uploader and upload date/.test(await page.evaluate(() => document.getElementById('citation-status-desc').innerText)));
+  });
+  await check('YouTube link without a readable date asks for it and explains the author choice', async () => {
+    await page.unroute('**/www.youtube.com/watch?v=dQw4w9WgXcQ');
+    await page.route('**/www.youtube.com/watch?v=dQw4w9WgXcQ', r => r.abort());
+    await page.route(/allorigins|corsproxy/, r => r.abort());
+    await page.evaluate(() => resolveWebOrDoi('https://www.youtube.com/shorts/dQw4w9WgXcQ'));
+    const f = await readCitationFields();
+    assert.strictEqual(f.year, '');
+    const desc = await page.evaluate(() => document.getElementById('citation-status-desc').innerText);
+    assert.ok(/upload date/.test(desc) && /braces/.test(desc), desc);
+  });
+
   // ── Citation generator layout ────────────────────────────────────────────
   await check('citation workspace opens empty on the Web Link tab with a two-pane layout', async () => {
     const r = await page.evaluate(() => {

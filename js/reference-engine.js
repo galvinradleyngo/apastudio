@@ -828,6 +828,9 @@ function parseAuthorsInput(raw) {
     if (!raw) return [];
     const trimmed = raw.trim();
     if (/\[@[^\]]+\]/.test(trimmed)) return [{ name: trimmed }];
+    // {Crash Course}: braces mark an organization or channel name that must not be turned into "Course, C."
+    const literal = trimmed.match(/^\{([^{}]+)\}$/);
+    if (literal) return [{ name: literal[1].trim() }];
     if (isCorporateAuthor(trimmed) && !trimmed.includes('&') && !trimmed.includes(';')) {
         return [{ name: trimmed }];
     }

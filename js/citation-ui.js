@@ -584,32 +584,46 @@ async function resolveSocialUrl(input) {
 }
 
 async function resolveYouTubeUrl(input) {
-    let url;
-    try { url = new URL(/^https?:\/\//i.test(input) ? input : `https://${input}`); } catch (e) { return false; }
-    const host = url.hostname.replace(/^www\.|^m\./i, '').toLowerCase();
-    if (host !== 'youtube.com' && host !== 'youtu.be') return false;
-    const videoId = host === 'youtu.be' ? url.pathname.slice(1) : url.searchParams.get('v');
-    if (!videoId) return false;
-    const canonical = `https://www.youtube.com/watch?v=${videoId}`;
+    const video = parseYouTubeUrl(input);
+    if (!video) return false;
+    let data;
     try {
-        const resp = await fetch(`https://www.youtube.com/oembed?url=${encodeURIComponent(canonical)}&format=json`);
+        const resp = await fetch(`https://www.youtube.com/oembed?url=${encodeURIComponent(video.url)}&format=json`);
         if (!resp.ok) return false;
-        const data = await resp.json();
-        setCiteTypeFromSource('video');
-        document.getElementById('cite-title').value = toSentenceCase(data.title || '', [data.author_name]);
-        document.getElementById('cite-authors').value = data.author_name || '';
-        document.getElementById('cite-year').value = '';
-        document.getElementById('cite-monthday').value = '';
-        document.getElementById('cite-source').value = 'YouTube';
-        document.getElementById('cite-doi-url').value = canonical;
-        updateCitationPreview();
-        applyFieldProvenance({});
-        setCitationStatus('warning', 'YouTube Video Found', 'Title and channel were retrieved. YouTube does not expose the upload date to this tool, so add the year and date from the video page. APA lists the channel name as the author.');
-        showToast('Video citation generated!');
-        return true;
+        data = await resp.json();
     } catch (e) {
         return false;
     }
+
+    // oEmbed has no upload date, so read it from the watch page (through the proxy when needed).
+    setCitationStatus('loading', 'YouTube Video Found', 'Looking for the upload date...');
+    let date = { year: '', monthDay: '' };
+    try {
+        const html = await fetchPageHtml(video.url);
+        if (html) date = parseYouTubeUploadDate(html);
+    } catch (e) { /* the date stays empty and is flagged below */ }
+
+    const channel = String(data.author_name || '').trim();
+    const author = youtubeAuthor(channel);
+    setCiteTypeFromSource('video');
+    document.getElementById('cite-title').value = toSentenceCase(data.title || '', [channel]);
+    document.getElementById('cite-authors').value = author.field;
+    document.getElementById('cite-year').value = date.year;
+    document.getElementById('cite-monthday').value = date.monthDay;
+    document.getElementById('cite-source').value = 'YouTube';
+    document.getElementById('cite-doi-url').value = video.url;
+    updateCitationPreview();
+    applyFieldProvenance({ 'cite-title': 'found', 'cite-authors': 'found', 'cite-year': date.year ? 'found' : 'guess' });
+
+    const notes = [];
+    if (!date.year) notes.push('add the upload date shown under the video (year, then month and day)');
+    notes.push(author.person
+        ? `"${channel}" was formatted as a person's name; if it is a channel or organization, type the channel name in braces, e.g. {${channel}}`
+        : `the channel name "${channel}" is used as the author (APA uses the uploader); if the uploader is a person, enter Last, F.`);
+    setCitationStatus(date.year ? 'success' : 'warning', 'YouTube Video Found',
+        `${date.year ? 'Found the title, uploader and upload date. ' : 'Found the title and uploader. '}Please ${notes.join('; ')}.`);
+    showToast('Video citation generated!');
+    return true;
 }
 
 async function fetchPageHtml(url) {

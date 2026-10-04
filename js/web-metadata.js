@@ -422,3 +422,51 @@ function parseBlueskyThread(json) {
         date: parseDateParts(post.record.createdAt || '')
     };
 }
+
+// ── YouTube ─────────────────────────────────────────────────────────────────
+// Video id from watch, short, shorts, embed, live and youtu.be links; null for channels and playlists.
+function parseYouTubeUrl(urlStr) {
+    let url;
+    try { url = new URL(/^https?:\/\//i.test(urlStr) ? urlStr : `https://${urlStr}`); } catch (e) { return null; }
+    const host = url.hostname.replace(/^www\.|^m\./i, '').toLowerCase();
+    if (host !== 'youtube.com' && host !== 'youtu.be' && host !== 'youtube-nocookie.com') return null;
+    const parts = url.pathname.split('/').filter(Boolean);
+    let id = '';
+    if (host === 'youtu.be') id = parts[0] || '';
+    else if (parts[0] === 'watch') id = url.searchParams.get('v') || '';
+    else if (['shorts', 'embed', 'live', 'v'].includes(parts[0])) id = parts[1] || '';
+    if (!/^[\w-]{11}$/.test(id)) return null;
+    return { id, short: parts[0] === 'shorts', url: `https://www.youtube.com/watch?v=${id}` };
+}
+
+// The watch page carries the upload date in several places; take the first that parses.
+function parseYouTubeUploadDate(html) {
+    const text = String(html || '');
+    const patterns = [
+        /<meta[^>]+itemprop=["']datePublished["'][^>]+content=["']([^"']+)["']/i,
+        /<meta[^>]+itemprop=["']uploadDate["'][^>]+content=["']([^"']+)["']/i,
+        /"uploadDate"\s*:\s*"([^"]+)"/,
+        /"datePublished"\s*:\s*"([^"]+)"/,
+        /"publishDate"\s*:\s*"([^"]+)"/
+    ];
+    for (const re of patterns) {
+        const m = text.match(re);
+        if (m) {
+            const parts = parseDateParts(m[1]);
+            if (parts.year) return parts;
+        }
+    }
+    return { year: '', monthDay: '' };
+}
+
+// APA lists the uploader: a person's name inverted (Rober, M.), a channel or organization as written (TED).
+// A two or three word capitalized name is treated as a person, which can misjudge brand channels; the status note says so.
+function youtubeAuthor(channelName) {
+    const name = String(channelName || '').replace(/\s+/g, ' ').trim();
+    if (!name) return { text: '', field: '', person: false };
+    const formatted = socialAuthor(name, '');
+    const person = formatted !== name;
+    // A multi-word group name is wrapped in braces in the form so it is never split into "Noah, T. D. S."
+    const field = !person && /\s/.test(name) && !isCorporateAuthor(name) ? `{${name}}` : formatted;
+    return { text: formatted, field, person };
+}

@@ -247,6 +247,36 @@ check('APA 7: Instagram reels and Facebook videos are [Video], photos stay [Phot
   assert.strictEqual(d('https://www.tiktok.com/@a/video/7340000000000000000'), 'Video');
 });
 
+// ── YouTube ─────────────────────────────────────────────────────────────────
+check('YouTube: video ids from every link style, nothing for channels and playlists', () => {
+  const id = u => run('JSON.stringify(parseYouTubeUrl(__v.u))', { u });
+  const ok = 'dQw4w9WgXcQ';
+  for (const u of [`https://www.youtube.com/watch?v=${ok}&t=30s`, `https://youtu.be/${ok}?si=abc`, `https://m.youtube.com/watch?v=${ok}`, `https://www.youtube.com/shorts/${ok}`, `https://www.youtube.com/embed/${ok}`, `https://www.youtube.com/live/${ok}`, `youtube.com/watch?v=${ok}`]) {
+    const r = JSON.parse(id(u));
+    assert.strictEqual(r.id, ok, u); assert.strictEqual(r.url, `https://www.youtube.com/watch?v=${ok}`);
+  }
+  assert.strictEqual(id('https://www.youtube.com/@TED'), 'null');
+  assert.strictEqual(id('https://www.youtube.com/playlist?list=PL123'), 'null');
+  assert.strictEqual(id('https://www.youtube.com/watch?v=short'), 'null');
+});
+check('YouTube: upload date read from itemprop, JSON-LD or embedded JSON (no timezone shift)', () => {
+  const d = html => JSON.parse(run('JSON.stringify(parseYouTubeUploadDate(__v.h))', { h: html }));
+  assert.deepStrictEqual(d('<meta itemprop="datePublished" content="2024-03-05T08:00:00-08:00">'), { year: '2024', monthDay: 'March 5' });
+  assert.deepStrictEqual(d('{"uploadDate":"2012-06-29T23:30:00-07:00"}'), { year: '2012', monthDay: 'June 29' });
+  assert.deepStrictEqual(d('"publishDate":"2020-01-09"'), { year: '2020', monthDay: 'January 9' });
+  assert.deepStrictEqual(d('<html>nothing here</html>'), { year: '', monthDay: '' });
+});
+check('YouTube: uploader formatted as a person or kept as a channel', () => {
+  const a = n => JSON.parse(run('JSON.stringify(youtubeAuthor(__v.n))', { n }));
+  assert.deepStrictEqual(a('Mark Rober'), { text: 'Rober, M.', field: 'Rober, M.', person: true });
+  assert.deepStrictEqual(a('TED'), { text: 'TED', field: 'TED', person: false });
+  assert.deepStrictEqual(a('Khan Academy'), { text: 'Khan Academy', field: 'Khan Academy', person: false });
+  assert.deepStrictEqual(a('The Daily Show with Trevor Noah'), { text: 'The Daily Show with Trevor Noah', field: '{The Daily Show with Trevor Noah}', person: false });
+  assert.strictEqual(run("JSON.stringify(parseAuthorsInput('{Crash Course}'))"), JSON.stringify([{ name: 'Crash Course' }]));
+  assert.strictEqual(run("generateApaReference({ type: 'video', year: '2012', monthDay: 'June 29', title: 'Listening to shame', authors: parseAuthorsInput('{The Daily Show with Trevor Noah}'), source: 'YouTube', url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' }).marked"),
+    'The Daily Show with Trevor Noah. (2012, June 29). *Listening to shame* [Video]. YouTube. https://www.youtube.com/watch?v=dQw4w9WgXcQ');
+});
+
 // Existing pure helpers also run without a browser.
 check('engine: sentence case, page ranges, suffixes, BibTeX', () => {
   assert.strictEqual(run("toSentenceCase('Climate Change In Manila And The Philippines')"), 'Climate change in Manila and the Philippines');
