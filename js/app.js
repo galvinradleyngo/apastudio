@@ -16,6 +16,8 @@ function init() {
     const savedDraft = readBibliographyDraft();
     if (savedDraft && !bibInputEl.value.trim()) bibInputEl.value = savedDraft;
     bibInputEl.addEventListener('input', () => { bibInputIsSample = false; scheduleBibliographyDraftSave(); });
+    initTocWorkspace();
+    initPaperReviewUi();
     associateFormLabels();
     PROVENANCE_FIELDS.forEach(id => {
         const el = document.getElementById(id);
@@ -41,10 +43,13 @@ function setMode(mode) {
     const isTableMode = mode === 'table';
     const isBibMode = mode === 'bibliography';
     const isCiteMode = mode === 'citation';
+    const isTocMode = mode === 'toc';
 
     document.getElementById('table-editor-panel').style.display = isTableMode ? 'block' : 'none';
     document.getElementById('bibliography-editor-panel').style.display = isBibMode ? 'block' : 'none';
     document.getElementById('citation-editor-panel').style.display = isCiteMode ? 'block' : 'none';
+    document.getElementById('toc-editor-panel').style.display = isTocMode ? 'block' : 'none';
+    document.getElementById('toc-export-container').style.display = isTocMode ? 'block' : 'none';
 
     document.getElementById('table-export-container').style.display = isTableMode ? 'block' : 'none';
     document.getElementById('bibliography-export-container').style.display = isBibMode ? 'block' : 'none';
@@ -62,6 +67,11 @@ function setMode(mode) {
         document.getElementById('btn-export-label').innerText = 'Export Bibliography to Word';
         document.getElementById('preview-mode-label').innerHTML = '<span class="w-2 h-2 rounded-full bg-emerald-500"></span>Reference List Preview';
         document.getElementById('preview-disclaimer').innerText = 'Reference list uses APA 7 ordering and hanging-indented, double-spaced manuscript styling.';
+    } else if (isTocMode) {
+        document.getElementById('btn-copy-label').innerText = 'Copy Contents';
+        document.getElementById('btn-export-label').innerText = 'Export Contents to Word';
+        document.getElementById('preview-mode-label').innerHTML = '<span class="w-2 h-2 rounded-full bg-amber-500"></span>Contents Page Preview';
+        document.getElementById('preview-disclaimer').innerText = 'Entries are indented 0.5 inch per heading level with right-aligned page numbers. Export keeps the dot leaders and Word styles.';
     } else if (isCiteMode) {
         document.getElementById('btn-copy-label').innerText = 'Copy APA Citation';
         document.getElementById('btn-export-label').innerText = 'Export Citation to Word';
@@ -76,6 +86,7 @@ function showHome() {
     document.getElementById('table-templates-section').classList.add('hidden');
     refreshContinueStrip();
     document.getElementById('home-view').style.display = 'flex';
+    document.getElementById('paper-view').style.display = 'none';
     document.getElementById('editor-view').style.display = 'none';
     document.getElementById('btn-home').style.display = 'none';
     document.getElementById('btn-export').style.display = 'none';
@@ -84,6 +95,7 @@ function showHome() {
 
 function showEditor() {
     document.getElementById('home-view').style.display = 'none';
+    document.getElementById('paper-view').style.display = 'none';
     document.getElementById('editor-view').style.display = 'flex';
     document.getElementById('btn-home').style.display = 'flex';
     document.getElementById('btn-export').style.display = 'flex';

@@ -23,8 +23,8 @@ const check = async (name, fn) => { try { await fn(); console.log('ok  -', name)
     assert.strictEqual(await hidden('table-templates-section'), true);
     assert.strictEqual(await hidden('home-continue'), true);
   });
-  await check('home: three tool cards are real buttons', async () => {
-    assert.strictEqual(await page.locator('#home-tools button').count(), 3);
+  await check('home: five tool cards are real buttons', async () => {
+    assert.strictEqual(await page.locator('#home-tools button').count(), 5);
   });
   await check('table card opens templates; All tools returns', async () => {
     await page.evaluate(() => openTableTemplates());

@@ -2,6 +2,7 @@
 
 // Custom Rich-Text Clipboard Copier
 function copyFormattedContent() {
+    if (currentMode === 'toc') { copyTocContent(); return; }
     if (currentMode === 'citation') {
         const refEl = document.getElementById('prev-citation-reference');
         if (!refEl) {
@@ -289,6 +290,7 @@ function exportTableDocx() {
 }
 
 function exportToWord() {
-    if (currentMode === 'table') exportTableDocx();
+    if (currentMode === 'toc') exportTocDocx();
+    else if (currentMode === 'table') exportTableDocx();
     else exportReferencesDocx();
 }

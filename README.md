@@ -24,6 +24,21 @@ A modern, browser-based academic formatting workspace for researchers, educators
    - 1-click rich-text copy and Word export.
 
 
+4. **Table of Contents Formatter**:
+   - Build entries in a form (levels 1 to 5, page numbers, move/delete), **paste** a rough draft (dot leaders, tabs, indentation or 1.1.1 numbering are understood), or **upload a Word draft**: it uses the file's existing contents page, otherwise builds one from its Heading styles, and reads tables and figures from their captions.
+   - Optional List of Tables and List of Figures, each on its own page. Layout options: dot leaders, spacing, indent per level, page number header, and an advanced live Word TOC field.
+   - Checks for missing or backwards page numbers and skipped levels. Exports a real `.docx` using Word's TOC 1 to 5 styles.
+
+5. **Reformat Your Paper** (full APA 7 review of a `.docx`):
+   - Upload a Word file; a progress bar walks through nine review stages, then a second bar covers the build.
+   - **Fixed automatically (formatting only):** US Letter and 1-inch margins, font, double spacing, left alignment, first-line and hanging indents, real Word styles for headings, body, block quote, references, captions and table notes, title page and abstract layout, page breaks, page-number header (running head for professional papers), APA table rules, caption layout (number above title, caption above the object), italic statistical symbols, stray spaces and empty paragraphs.
+   - **Asked first (anything that could change wording or order):** table and figure renumbering with their in-text mentions, citation fixes (`&` vs `and`, comma before the year, `et al.`, page numbers), reference rebuilds and alphabetizing, heading and caption title case, headings detected from plain paragraphs, block quotes, adding a title page or a title on the first page of text. Every item shows before and after and nothing is ticked by default.
+   - **Flagged only:** abstract over 250 words, missing title page elements, citations without references and references never cited, tables or figures never mentioned, missing alt text, heading level problems, quotes without page numbers.
+   - Download the reformatted paper and a review report. Limits: `.docx` only (older `.doc` must be re-saved as `.docx` in Word); paragraphs with tracked changes or Zotero/EndNote/Mendeley fields are not text-edited; level 4 and 5 run-in headings stay on their own line; language, bias-free wording and source accuracy are not judged.
+
+## Privacy
+Everything runs in the browser. Uploaded papers, tables, bibliographies and contents pages are never sent to a server. The one exception is the Citation Generator, which sends the DOI or link you enter to public services (Crossref, DataCite, and the optional metadata Worker) to look it up. The saved bibliography draft lives in this browser's localStorage only.
+
 ## URL handling notes
 - Web links resolve in this order: DOI in the link, arXiv, YouTube (oEmbed), Wikipedia, then page metadata (JSON-LD, Dublin Core, `citation_*`, Open Graph). If the page title matches a published work in Crossref, that record is used. If the live page is blocked, the Wayback Machine copy is tried.
 - Fields are marked green (found in source), amber (guessed from the link) or red (missing) so you know what to verify. Editing a field clears its marker.
@@ -31,7 +46,7 @@ A modern, browser-based academic formatting workspace for researchers, educators
 - Tests: `node tests/url-metadata.test.js` (requires Playwright).
 
 ## Homepage and saved drafts
-- The homepage lists the three tools in workflow order (Citation Generator, Bibliography Formatter, Table Formatter). Table templates open from the Table Formatter card.
+- The homepage lists every tool: the three standalone tools (Citation Generator, Bibliography Formatter, Table Formatter) plus Table of Contents and Reformat Your Paper. Each works on its own. Table templates open from the Table Formatter card.
 - Your bibliography text is saved automatically in this browser (localStorage); the homepage offers to resume or discard it. The built-in sample bibliography is never saved.
 - Tests: `node tests/home-and-draft.test.js`.
 
@@ -43,7 +58,6 @@ A modern, browser-based academic formatting workspace for researchers, educators
 - **Bibliography tools:** en-dash page ranges, automatic a/b year suffixes for same-author same-year works, one-click sentence-case fixes for flagged titles, BibTeX/RIS import, and an in-text citation vs reference-list check.
 - **Export:** the bibliography, single citations and tables all download as real `.docx` files (Times New Roman; references use real Word styles (Heading 1 for "References" and a "Reference" paragraph style with the hanging indent) so you can restyle the whole list in Word, plus italics; APA rules-only borders and notes for tables).
 - **Accessibility:** labelled form fields, live regions for status messages, visible keyboard focus.
-- `apa_table_formatter.html` now just redirects to `index.html`.
 - Tests: `node tests/features.test.js`.
 
 ## Rebuild from parsed parts
@@ -58,8 +72,9 @@ No build step; `index.html` loads classic scripts in this order:
 - `js/reference-engine.js`: pure text logic (formatting, italics, citation generator, BibTeX/RIS). No DOM.
 - `js/reference-parser.js`: reference parser and rebuild. No DOM.
 - `js/web-metadata.js`: URL and page-metadata helpers.
+- `js/docx-io.js`: `.docx` ZIP reader/writer and OOXML helpers. `js/paper-ooxml.js`, `js/paper-review.js`, `js/paper-findings.js`, `js/paper-finish.js`: Paper Reviewer engine (needs DOMParser). `js/toc-formatter.js`: contents logic and UI. `js/paper-review-ui.js`: reviewer wizard.
 - `js/app.js`, `js/table-formatter.js`, `js/bibliography-ui.js`, `js/citation-ui.js`, `js/export.js`, `js/main.js`: UI for each tool, exports, and startup.
 - `worker/`: optional Cloudflare Worker for fetching pages. `tests/`: see below.
 
 ## Tests
-`npm test` runs everything: `tests/engine.test.js` needs only Node; the browser tests need Playwright (`npm install`, then a Chromium build).
+`npm test` runs everything (`tests/toc.test.js` is pure Node; `tests/paper-review.test.js` uses `tests/fixtures/messy-paper.docx`, rebuilt by `python3 tests/make-fixture.py`; `node tests/serve.js` serves the site for manual checks): `tests/engine.test.js` needs only Node; the browser tests need Playwright (`npm install`, then a Chromium build).
