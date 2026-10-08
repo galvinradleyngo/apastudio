@@ -140,6 +140,16 @@
         .issue-list li {
             margin: 0.125rem 0;
         }
+        .toc-row { display: flex; align-items: flex-end; }
+        .toc-text { flex: 0 1 auto; padding-left: 0.5in; text-indent: -0.5in; }
+        .toc-dots { flex: 1 1 2rem; min-width: 1rem; border-bottom: 2px dotted #000; margin: 0 4px 0.45em; }
+        .toc-gap { flex: 1 1 2rem; }
+        .toc-page { flex: none; padding-left: 4px; }
+        .pr-stage-done { color: #047857; }
+        .pr-stage-active { color: #4f46e5; font-weight: 600; }
+        .pr-stage-wait { color: #94a3b8; }
+        .pr-diff-before { background: #fee2e2; border-radius: 4px; padding: 0 3px; }
+        .pr-diff-after { background: #dcfce7; border-radius: 4px; padding: 0 3px; }
         :focus-visible { outline: 2px solid #4f46e5; outline-offset: 2px; }
         .prov-found { box-shadow: inset 3px 0 0 #10b981 !important; }
         .prov-guess { box-shadow: inset 3px 0 0 #f59e0b !important; }
@@ -167,7 +177,7 @@
                     APA Formatting Studio
                     <span class="text-[10px] font-semibold uppercase tracking-wider bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-full border border-indigo-100">7th Edition</span>
                 </h1>
-                <p class="text-xs text-slate-400">Citations, reference lists and tables</p>
+                <p class="text-xs text-slate-400">Citations, references, tables, contents and full papers</p>
             </div>
         </div>
         <div class="flex items-center gap-3">
@@ -196,7 +206,7 @@
                         APA 7 Formatting, <span class="bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">Simplified.</span>
                     </h2>
                     <p class="text-slate-500 text-base leading-relaxed">
-                        Generate citations, tidy your reference list, and build APA tables, then copy or export to Word.
+                        Generate citations, tidy your reference list, build tables and contents pages, or reformat a whole paper, then copy or export to Word.
                     </p>
                 </div>
 
@@ -247,6 +257,28 @@
                                 <div class="space-y-1">
                                     <h4 class="font-bold text-slate-800 group-hover:text-blue-600 transition-colors">Table Formatter</h4>
                                     <p class="text-xs text-slate-500 leading-relaxed">Build APA 7 tables from templates or paste one from Word or Excel, with live preview.</p>
+                                </div>
+                            </button>
+
+                            <button type="button" onclick="loadTocWorkspace()" class="text-left bg-white border border-slate-200/80 hover:border-amber-500 hover:shadow-xl hover:shadow-amber-500/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-500 rounded-2xl p-6 transition-all duration-300 flex flex-col gap-4 group">
+                                <div class="flex items-center justify-between">
+                                    <div class="bg-amber-50 text-amber-600 p-3.5 rounded-xl group-hover:bg-amber-500 group-hover:text-white transition-all duration-300"><i data-lucide="list-ordered" class="w-5 h-5"></i></div>
+                                    <span class="text-[10px] font-bold uppercase tracking-wider text-amber-700 bg-amber-50 px-2 py-1 rounded-full">New</span>
+                                </div>
+                                <div class="space-y-1">
+                                    <h4 class="font-bold text-slate-800 group-hover:text-amber-600 transition-colors">Table of Contents</h4>
+                                    <p class="text-xs text-slate-500 leading-relaxed">Build an APA-style contents page in a form, or upload a rough draft to clean up, then export to Word.</p>
+                                </div>
+                            </button>
+
+                            <button type="button" onclick="loadPaperReviewer()" class="text-left bg-white border border-slate-200/80 hover:border-violet-500 hover:shadow-xl hover:shadow-violet-500/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-violet-500 rounded-2xl p-6 transition-all duration-300 flex flex-col gap-4 group md:col-span-2">
+                                <div class="flex items-center justify-between">
+                                    <div class="bg-violet-50 text-violet-600 p-3.5 rounded-xl group-hover:bg-violet-600 group-hover:text-white transition-all duration-300"><i data-lucide="file-check-2" class="w-5 h-5"></i></div>
+                                    <span class="text-[10px] font-bold uppercase tracking-wider text-violet-700 bg-violet-50 px-2 py-1 rounded-full">New</span>
+                                </div>
+                                <div class="space-y-1">
+                                    <h4 class="font-bold text-slate-800 group-hover:text-violet-600 transition-colors">Reformat Your Paper</h4>
+                                    <p class="text-xs text-slate-500 leading-relaxed">Upload a Word paper for an end-to-end APA 7 review: page setup, headings, pagination, table and figure numbering, citations and references. Formatting is fixed for you; anything that could change your wording is asked first.</p>
                                 </div>
                             </button>
                         </div>
@@ -341,6 +373,89 @@
                         </div>
                     </div>
                 </div>
+            </div>
+        </div>
+
+        <!-- Reformat Your Paper (full-width wizard) -->
+        <div id="paper-view" class="absolute inset-0 bg-slate-50 z-30 overflow-y-auto custom-scrollbar p-6 md:p-10" style="display: none;">
+            <div class="max-w-4xl w-full mx-auto space-y-6">
+                <div class="flex items-start justify-between gap-4">
+                    <div>
+                        <h2 class="text-2xl font-extrabold text-slate-900 flex items-center gap-2"><i data-lucide="file-check-2" class="w-6 h-6 text-violet-600"></i> Reformat Your Paper</h2>
+                        <p class="text-sm text-slate-500 mt-1">Upload a Word file. It is checked against APA 7 and reformatted. Formatting fixes happen automatically; anything that could change your wording is shown to you first.</p>
+                    </div>
+                </div>
+
+                <!-- Step 1: upload and options -->
+                <div id="pr-step-upload" class="space-y-5">
+                    <label id="pr-dropzone" for="pr-file-input" class="block bg-white border-2 border-dashed border-slate-300 rounded-2xl p-10 text-center cursor-pointer hover:border-violet-400 hover:bg-violet-50/30 transition-colors">
+                        <span class="block mx-auto w-12 h-12 rounded-2xl bg-violet-50 text-violet-600 flex items-center justify-center mb-3"><i data-lucide="file-up" class="w-6 h-6"></i></span>
+                        <span id="pr-file-name" class="block text-base font-bold text-slate-800">Drop your paper here, or click to browse</span>
+                        <span class="block text-xs text-slate-500 mt-1">Word .docx files. Saved from an older .doc? In Word choose File &gt; Save As &gt; Word Document (.docx).</span>
+                    </label>
+                    <input type="file" id="pr-file-input" accept=".docx" class="sr-only">
+                    <p id="pr-upload-error" class="hidden text-sm text-rose-700 bg-rose-50 border border-rose-200 rounded-xl p-3" role="alert"></p>
+
+                    <div class="bg-white border border-slate-200 rounded-2xl p-5 space-y-4">
+                        <h3 class="font-bold text-slate-800 text-sm">Options</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div>
+                                <label for="pr-type" class="block text-xs font-semibold text-slate-600 mb-1">Paper type</label>
+                                <select id="pr-type" class="w-full border border-slate-200 rounded-xl p-3 text-sm bg-white">
+                                    <option value="student">Student paper</option>
+                                    <option value="professional">Professional paper (running head)</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label for="pr-font" class="block text-xs font-semibold text-slate-600 mb-1">Font</label>
+                                <select id="pr-font" class="w-full border border-slate-200 rounded-xl p-3 text-sm bg-white">
+                                    <option>Times New Roman</option><option>Calibri</option><option>Arial</option><option>Georgia</option><option>Lucida Sans Unicode</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label for="pr-runhead" class="block text-xs font-semibold text-slate-600 mb-1">Running head (professional)</label>
+                                <input id="pr-runhead" type="text" maxlength="50" placeholder="SHORT TITLE IN CAPITALS" class="w-full border border-slate-200 rounded-xl p-3 text-sm">
+                            </div>
+                        </div>
+                        <details class="border border-slate-200 rounded-xl px-4 py-3">
+                            <summary class="cursor-pointer text-sm font-semibold text-slate-700">Title page details (optional)</summary>
+                            <p class="text-xs text-slate-500 mt-2">Only used if your paper has no title page. You will be asked before a title page is added.</p>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
+                                <input id="pr-tp-title" aria-label="Paper title" placeholder="Paper title" class="border border-slate-200 rounded-xl p-3 text-sm">
+                                <input id="pr-tp-author" aria-label="Author" placeholder="Author name" class="border border-slate-200 rounded-xl p-3 text-sm">
+                                <input id="pr-tp-affil" aria-label="Affiliation" placeholder="Department, University" class="border border-slate-200 rounded-xl p-3 text-sm">
+                                <input id="pr-tp-course" aria-label="Course" placeholder="Course number and name" class="border border-slate-200 rounded-xl p-3 text-sm">
+                                <input id="pr-tp-instr" aria-label="Instructor" placeholder="Instructor" class="border border-slate-200 rounded-xl p-3 text-sm">
+                                <input id="pr-tp-date" aria-label="Due date" placeholder="Due date" class="border border-slate-200 rounded-xl p-3 text-sm">
+                            </div>
+                        </details>
+                        <div class="flex items-center gap-3">
+                            <button id="pr-start" type="button" onclick="prStartReview()" disabled class="bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold py-3 px-6 rounded-xl shadow-md flex items-center gap-2"><i data-lucide="scan-search" class="w-4 h-4"></i> Review my paper</button>
+                            <span class="text-xs text-slate-500">Your file is processed in this browser tab and is not uploaded anywhere.</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Progress (used for both phases) -->
+                <div id="pr-step-progress" class="hidden bg-white border border-slate-200 rounded-2xl p-6 space-y-5" aria-live="polite">
+                    <div class="flex items-end justify-between">
+                        <div>
+                            <p id="pr-progress-title" class="text-xs font-extrabold uppercase tracking-widest text-violet-600">Reviewing</p>
+                            <p id="pr-progress-label" class="text-lg font-bold text-slate-900">Starting…</p>
+                        </div>
+                        <p id="pr-progress-pct" class="text-3xl font-extrabold text-slate-900 tabular-nums">0%</p>
+                    </div>
+                    <div class="h-3 bg-slate-100 rounded-full overflow-hidden" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="pr-bar-track" aria-label="Review progress">
+                        <div id="pr-bar" class="h-full bg-gradient-to-r from-violet-500 to-indigo-500 rounded-full" style="width: 0%; transition: width 0.5s ease;"></div>
+                    </div>
+                    <ol id="pr-stage-list" class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 text-sm"></ol>
+                </div>
+
+                <!-- Step 3: questions -->
+                <div id="pr-step-review" class="hidden space-y-5"></div>
+
+                <!-- Step 4: done -->
+                <div id="pr-step-done" class="hidden space-y-5"></div>
             </div>
         </div>
 
@@ -738,6 +853,92 @@
                         </div>
                     </div>
                     
+                    <div id="toc-editor-panel" class="hidden space-y-6">
+                        <div class="bg-slate-50 border border-slate-200/80 rounded-2xl p-5 space-y-4">
+                            <div class="flex items-center justify-between border-b border-slate-200/60 pb-3">
+                                <h3 class="font-bold text-slate-800 text-sm flex items-center gap-2"><i data-lucide="list-ordered" class="w-4 h-4 text-amber-600"></i> 1. Start from</h3>
+                                <span class="text-[10px] font-bold uppercase tracking-wider bg-amber-50 text-amber-700 border border-amber-100 px-2.5 py-0.5 rounded-full">APA 7 Contents</span>
+                            </div>
+                            <div role="tablist" class="flex gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200">
+                                <button type="button" role="tab" id="toc-tab-form" onclick="tocSwitchInput('form')" class="flex-1 py-2 px-3 text-xs font-bold rounded-lg transition-all">Build in form</button>
+                                <button type="button" role="tab" id="toc-tab-paste" onclick="tocSwitchInput('paste')" class="flex-1 py-2 px-3 text-xs font-bold rounded-lg transition-all">Paste a draft</button>
+                                <button type="button" role="tab" id="toc-tab-upload" onclick="tocSwitchInput('upload')" class="flex-1 py-2 px-3 text-xs font-bold rounded-lg transition-all">Upload Word draft</button>
+                            </div>
+                            <div id="toc-input-form" class="space-y-2">
+                                <p class="text-xs text-slate-500">Add entries in section 2 below. Quick-add common sections:</p>
+                                <div id="toc-common" class="flex flex-wrap gap-1.5"></div>
+                            </div>
+                            <div id="toc-input-paste" class="hidden space-y-3">
+                                <label for="toc-paste-input" class="block text-xs font-semibold text-slate-600">Paste your rough contents (one entry per line)</label>
+                                <textarea id="toc-paste-input" rows="8" class="w-full border border-slate-200 rounded-xl p-3 text-sm font-mono focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none placeholder-slate-400" placeholder="Introduction ........ 3&#10;Method ........ 5&#10;    Participants ........ 5&#10;    Procedure ........ 6&#10;Results 8&#10;References 14"></textarea>
+                                <p class="text-xs text-slate-500">Indented lines become sub-levels. Dot leaders, tabs or a trailing number all work, and so do numbered outlines (1, 1.1, 1.1.1).</p>
+                                <button type="button" onclick="tocLoadPasted()" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs py-2.5 px-4 rounded-xl">Clean up and load into the form</button>
+                            </div>
+                            <div id="toc-input-upload" class="hidden space-y-3">
+                                <label id="toc-dropzone" for="toc-file-input" class="block border-2 border-dashed border-slate-200 rounded-xl p-6 text-center cursor-pointer hover:border-blue-400 transition-colors">
+                                    <span class="block text-sm font-semibold text-slate-700">Drop a Word draft here, or click to browse</span>
+                                    <span class="block text-xs text-slate-500 mt-1">.docx or .txt. Uses its contents page if it has one, otherwise builds one from its Heading styles. Tables and figures are read from their captions.</span>
+                                </label>
+                                <input type="file" id="toc-file-input" accept=".docx,.txt" class="sr-only">
+                                <p id="toc-upload-status" class="text-xs text-slate-500" role="status" aria-live="polite"></p>
+                            </div>
+                        </div>
+
+                        <div class="space-y-3">
+                            <div class="flex items-center justify-between gap-2">
+                                <h3 class="font-bold text-slate-800 text-sm flex items-center gap-2"><i data-lucide="edit-3" class="w-4 h-4 text-indigo-600"></i> 2. Entries</h3>
+                                <div role="tablist" class="flex gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200">
+                                    <button type="button" role="tab" id="toc-list-contents" onclick="tocSwitchList('contents')" class="py-1.5 px-3 text-xs font-bold rounded-lg">Contents <span class="toc-count text-slate-400 font-semibold"></span></button>
+                                    <button type="button" role="tab" id="toc-list-tables" onclick="tocSwitchList('tables')" class="py-1.5 px-3 text-xs font-bold rounded-lg">Tables <span class="toc-count text-slate-400 font-semibold"></span></button>
+                                    <button type="button" role="tab" id="toc-list-figures" onclick="tocSwitchList('figures')" class="py-1.5 px-3 text-xs font-bold rounded-lg">Figures <span class="toc-count text-slate-400 font-semibold"></span></button>
+                                </div>
+                            </div>
+                            <p id="toc-level-hint" class="text-[11px] text-slate-500">Level 1 = main sections. Levels 2 to 5 indent 0.5 inch each, matching APA heading levels.</p>
+                            <div id="toc-rows" class="space-y-2"></div>
+                            <div class="flex flex-wrap gap-2">
+                                <button type="button" onclick="tocAddEntry()" class="bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs font-semibold py-2 px-3 rounded-xl">+ Add entry</button>
+                                <button type="button" onclick="tocTitleCaseAll()" class="bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs font-semibold py-2 px-3 rounded-xl">Title-case all entries</button>
+                                <button type="button" onclick="tocClearAll()" class="bg-white hover:bg-rose-50 border border-slate-200 text-rose-700 text-xs font-semibold py-2 px-3 rounded-xl">Clear this list</button>
+                            </div>
+                            <p id="toc-lists-note" class="text-[11px] text-slate-500"></p>
+                        </div>
+
+                        <div class="bg-slate-50 border border-slate-200/80 rounded-2xl p-5 space-y-4">
+                            <h3 class="font-bold text-slate-800 text-sm flex items-center gap-2"><i data-lucide="settings-2" class="w-4 h-4 text-blue-600"></i> 3. Layout</h3>
+                            <div>
+                                <label id="toc-title-label" for="toc-title-input" class="block text-xs font-semibold text-slate-600 mb-1">Page title</label>
+                                <input type="text" id="toc-title-input" oninput="tocTitleChanged()" class="w-full border border-slate-200 rounded-xl p-3 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none">
+                            </div>
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label for="toc-opt-spacing" class="block text-xs font-semibold text-slate-600 mb-1">Line spacing</label>
+                                    <select id="toc-opt-spacing" onchange="tocOptionChanged()" class="w-full border border-slate-200 rounded-xl p-3 text-sm bg-white">
+                                        <option value="double">Double (APA default)</option>
+                                        <option value="mixed">Single within entries, space between</option>
+                                        <option value="single">Single</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label for="toc-opt-indent" class="block text-xs font-semibold text-slate-600 mb-1">Indent per level</label>
+                                    <select id="toc-opt-indent" onchange="tocOptionChanged()" class="w-full border border-slate-200 rounded-xl p-3 text-sm bg-white">
+                                        <option value="0.5">0.5 inch (APA)</option>
+                                        <option value="0.25">0.25 inch</option>
+                                        <option value="0.75">0.75 inch</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <label class="flex items-center gap-2 text-xs text-slate-700"><input type="checkbox" id="toc-opt-leaders" checked onchange="tocOptionChanged()" class="rounded border-slate-300"> Dot leaders to the page numbers</label>
+                            <label class="flex items-center gap-2 text-xs text-slate-700"><input type="checkbox" id="toc-opt-header" checked onchange="tocOptionChanged()" class="rounded border-slate-300"> Page number at top right</label>
+                            <label class="flex items-start gap-2 text-xs text-slate-700"><input type="checkbox" id="toc-opt-field" onchange="tocOptionChanged()" class="mt-0.5 rounded border-slate-300"> <span>Make the contents a live Word field (advanced)</span></label>
+                            <p id="toc-field-warning" class="hidden text-[11px] text-amber-800 bg-amber-50 border border-amber-200 rounded-lg p-2.5">Only use this if you will paste the page into a paper that uses Word's Heading 1 to 3 styles. When you right-click it in Word and choose Update Field, Word rebuilds the entries from those headings, and an empty document would give an empty list.</p>
+                        </div>
+
+                        <div class="bg-amber-50 border border-amber-200 rounded-2xl p-5 space-y-2">
+                            <h3 class="font-bold text-amber-900 text-sm flex items-center gap-2"><i data-lucide="triangle-alert" class="w-4 h-4 text-amber-600"></i> Checks</h3>
+                            <div id="toc-checks" class="text-xs text-amber-900 leading-relaxed" aria-live="polite"></div>
+                        </div>
+                    </div>
+
                     <div class="h-12"></div>
                 </div>
             </div>
@@ -799,6 +1000,8 @@
                                     <p class="apa-reference-item">Paste references and click Format Bibliography to generate an APA 7 reference list.</p>
                                 </div>
                             </div>
+
+                            <div id="toc-export-container" class="apa-preview-container" style="display: none;"></div>
 
                             <div id="citation-preview-wrapper" style="display: none;">
                                 <div style="text-align: center; font-weight: bold; margin-bottom: 12pt; font-family: 'Times New Roman', Times, serif; font-size: 12pt;">Reference</div>
@@ -910,11 +1113,18 @@
     <script src="js/reference-engine.js"></script>
     <script src="js/reference-parser.js"></script>
     <script src="js/web-metadata.js"></script>
+    <script src="js/docx-io.js"></script>
+    <script src="js/paper-ooxml.js"></script>
+    <script src="js/paper-review.js"></script>
+    <script src="js/paper-findings.js"></script>
+    <script src="js/paper-finish.js"></script>
     <script src="js/app.js"></script>
     <script src="js/table-formatter.js"></script>
     <script src="js/bibliography-ui.js"></script>
     <script src="js/citation-ui.js"></script>
     <script src="js/export.js"></script>
+    <script src="js/toc-formatter.js"></script>
+    <script src="js/paper-review-ui.js"></script>
     <script src="js/main.js"></script>
 </body>
 </html>
