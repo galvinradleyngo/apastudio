@@ -36,6 +36,9 @@ A modern, browser-based academic formatting workspace for researchers, educators
    - **Flagged only:** abstract over 250 words, missing title page elements, citations without references and references never cited, tables or figures never mentioned, missing alt text, heading level problems, quotes without page numbers.
    - Download the reformatted paper and a review report. Limits: `.docx` only (older `.doc` must be re-saved as `.docx` in Word); paragraphs with tracked changes or Zotero/EndNote/Mendeley fields are not text-edited; level 4 and 5 run-in headings stay on their own line; language, bias-free wording and source accuracy are not judged.
 
+## Credits
+This app was co-developed with Claude (Anthropic) and tested by humans. The footer on every screen says so.
+
 ## Privacy
 Everything runs in the browser. Uploaded papers, tables, bibliographies and contents pages are never sent to a server. The one exception is the Citation Generator, which sends the DOI or link you enter to public services (Crossref, DataCite, and the optional metadata Worker) to look it up. The saved bibliography draft lives in this browser's localStorage only.
 

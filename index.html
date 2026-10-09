@@ -140,6 +140,21 @@
         .issue-list li {
             margin: 0.125rem 0;
         }
+        /* Responsive behaviour */
+        html { -webkit-text-size-adjust: 100%; }
+        body.h-screen { height: 100vh; height: 100dvh; }
+        .apa-preview-container { overflow-x: auto; }
+        .tap-target { min-width: 2rem; min-height: 2rem; }
+        @media (max-width: 1023px) {
+            #editor-view[data-pane="edit"] #preview-pane { display: none; }
+            #editor-view[data-pane="preview"] #edit-pane { display: none; }
+        }
+        @media (max-width: 639px) {
+            input[type="text"], input:not([type]), select, textarea { font-size: 16px !important; }
+            #toast { max-width: calc(100vw - 2rem); }
+        }
+        @media (hover: none) { .group:hover .group-hover\:opacity-100 { opacity: 0; } }
+        @supports not (backdrop-filter: blur(1px)) { .backdrop-blur-md, .backdrop-blur-sm { background-color: rgba(255,255,255,0.95); } }
         .toc-row { display: flex; align-items: flex-end; }
         .toc-text { flex: 0 1 auto; padding-left: 0.5in; text-indent: -0.5in; }
         .toc-dots { flex: 1 1 2rem; min-width: 1rem; border-bottom: 2px dotted #000; margin: 0 4px 0.45em; }
@@ -167,28 +182,28 @@
     </div>
 
     <!-- Main Workspace Navbar -->
-    <header class="bg-white/80 backdrop-blur-md border-b border-slate-200/80 px-8 py-4 flex justify-between items-center shrink-0 z-20">
-        <div class="flex items-center gap-3 cursor-pointer" onclick="showHome()" title="Back to home">
-            <div class="bg-gradient-to-tr from-blue-600 to-indigo-600 text-white p-2.5 rounded-xl shadow-md shadow-blue-500/10">
+    <header class="bg-white/80 backdrop-blur-md border-b border-slate-200/80 px-3 sm:px-8 py-3 sm:py-4 flex justify-between items-center gap-2 shrink-0 z-20">
+        <div class="flex items-center gap-2 sm:gap-3 cursor-pointer min-w-0" onclick="showHome()" title="Back to home">
+            <div class="bg-gradient-to-tr from-blue-600 to-indigo-600 text-white p-2 sm:p-2.5 rounded-xl shadow-md shadow-blue-500/10 shrink-0">
                 <i data-lucide="graduation-cap" class="w-5 h-5"></i>
             </div>
             <div>
-                <h1 class="text-lg font-bold bg-gradient-to-r from-slate-900 to-indigo-950 bg-clip-text text-transparent flex items-center gap-2">
+                <h1 class="text-base sm:text-lg font-bold bg-gradient-to-r from-slate-900 to-indigo-950 bg-clip-text text-transparent flex items-center gap-2">
                     APA Formatting Studio
-                    <span class="text-[10px] font-semibold uppercase tracking-wider bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-full border border-indigo-100">7th Edition</span>
+                    <span class="hidden sm:inline text-[10px] font-semibold uppercase tracking-wider bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-full border border-indigo-100">7th Edition</span>
                 </h1>
-                <p class="text-xs text-slate-400">Citations, references, tables, contents and full papers</p>
+                <p class="hidden md:block text-xs text-slate-400">Citations, references, tables, contents and full papers</p>
             </div>
         </div>
-        <div class="flex items-center gap-3">
-            <button id="btn-home" onclick="showHome()" class="hidden text-sm font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-50 border border-slate-200 px-4 py-2.5 rounded-xl transition-all duration-200 items-center gap-2">
-                <i data-lucide="home" class="w-4 h-4"></i> Home
+        <div class="flex items-center gap-2 sm:gap-3 shrink-0">
+            <button id="btn-home" onclick="showHome()" class="hidden text-sm font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-50 border border-slate-200 px-3 sm:px-4 py-2.5 rounded-xl transition-all duration-200 items-center gap-2" aria-label="Home">
+                <i data-lucide="home" class="w-4 h-4"></i> <span class="sr-only sm:not-sr-only">Home</span>
             </button>
-            <button id="btn-copy" onclick="copyFormattedContent()" class="hidden bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold py-2.5 px-4 rounded-xl border border-slate-200 transition-all duration-200 items-center gap-2">
-                <i data-lucide="copy" class="w-4 h-4"></i> <span id="btn-copy-label">Copy Formatted Table</span>
+            <button id="btn-copy" onclick="copyFormattedContent()" class="hidden bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold py-2.5 px-3 sm:px-4 rounded-xl border border-slate-200 transition-all duration-200 items-center gap-2">
+                <i data-lucide="copy" class="w-4 h-4"></i> <span id="btn-copy-label" class="sr-only sm:not-sr-only">Copy Formatted Table</span>
             </button>
-            <button id="btn-export" onclick="exportToWord()" class="hidden bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold py-2.5 px-5 rounded-xl shadow-lg shadow-blue-500/15 border border-blue-500/10 transition-all duration-200 items-center gap-2">
-                <i data-lucide="download-cloud" class="w-4 h-4"></i> <span id="btn-export-label">Export Table to Word</span>
+            <button id="btn-export" onclick="exportToWord()" class="hidden bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold py-2.5 px-3 sm:px-5 rounded-xl shadow-lg shadow-blue-500/15 border border-blue-500/10 transition-all duration-200 items-center gap-2">
+                <i data-lucide="download-cloud" class="w-4 h-4"></i> <span id="btn-export-label" class="sr-only sm:not-sr-only">Export Table to Word</span>
             </button>
         </div>
     </header>
@@ -197,12 +212,12 @@
     <main class="flex-1 flex overflow-hidden relative">
         
         <!-- Dashboard Home View (Template Selection Workspace) -->
-        <div id="home-view" class="absolute inset-0 bg-slate-50/50 z-30 flex flex-col items-center overflow-y-auto custom-scrollbar p-6 md:p-12">
-            <div class="max-w-5xl w-full space-y-10">
+        <div id="home-view" class="absolute inset-0 bg-slate-50/50 z-30 flex flex-col items-center overflow-y-auto custom-scrollbar p-4 sm:p-6 md:p-12">
+            <div class="max-w-5xl w-full space-y-8 sm:space-y-10">
 
                 <!-- Hero -->
                 <div class="text-center space-y-3 max-w-2xl mx-auto">
-                    <h2 class="text-4xl font-extrabold tracking-tight text-slate-900">
+                    <h2 class="text-3xl sm:text-4xl font-extrabold tracking-tight text-slate-900">
                         APA 7 Formatting, <span class="bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">Simplified.</span>
                     </h2>
                     <p class="text-slate-500 text-base leading-relaxed">
@@ -226,7 +241,7 @@
                 <div id="home-tools" class="space-y-10">
                     <div class="space-y-4">
                         <h3 class="text-sm font-extrabold uppercase tracking-widest text-slate-500 text-center">What do you need?</h3>
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
                             <button type="button" onclick="loadCitationWorkspace()" class="text-left bg-white border border-slate-200/80 hover:border-indigo-500 hover:shadow-xl hover:shadow-indigo-500/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-500 rounded-2xl p-6 transition-all duration-300 flex flex-col gap-4 group">
                                 <div class="flex items-center justify-between">
                                     <div class="bg-indigo-50 text-indigo-600 p-3.5 rounded-xl group-hover:bg-indigo-600 group-hover:text-white transition-all duration-300"><i data-lucide="quote" class="w-5 h-5"></i></div>
@@ -271,7 +286,7 @@
                                 </div>
                             </button>
 
-                            <button type="button" onclick="loadPaperReviewer()" class="text-left bg-white border border-slate-200/80 hover:border-violet-500 hover:shadow-xl hover:shadow-violet-500/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-violet-500 rounded-2xl p-6 transition-all duration-300 flex flex-col gap-4 group md:col-span-2">
+                            <button type="button" onclick="loadPaperReviewer()" class="text-left bg-white border border-slate-200/80 hover:border-violet-500 hover:shadow-xl hover:shadow-violet-500/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-violet-500 rounded-2xl p-6 transition-all duration-300 flex flex-col gap-4 group sm:col-span-2">
                                 <div class="flex items-center justify-between">
                                     <div class="bg-violet-50 text-violet-600 p-3.5 rounded-xl group-hover:bg-violet-600 group-hover:text-white transition-all duration-300"><i data-lucide="file-check-2" class="w-5 h-5"></i></div>
                                     <span class="text-[10px] font-bold uppercase tracking-wider text-violet-700 bg-violet-50 px-2 py-1 rounded-full">New</span>
@@ -381,7 +396,7 @@
         </div>
 
         <!-- Reformat Your Paper (full-width wizard) -->
-        <div id="paper-view" class="absolute inset-0 bg-slate-50 z-30 overflow-y-auto custom-scrollbar p-6 md:p-10" style="display: none;">
+        <div id="paper-view" class="absolute inset-0 bg-slate-50 z-30 overflow-y-auto custom-scrollbar p-4 sm:p-6 md:p-10" style="display: none;">
             <div class="max-w-4xl w-full mx-auto space-y-6">
                 <div class="flex items-start justify-between gap-4">
                     <div>
@@ -392,7 +407,7 @@
 
                 <!-- Step 1: upload and options -->
                 <div id="pr-step-upload" class="space-y-5">
-                    <label id="pr-dropzone" for="pr-file-input" class="block bg-white border-2 border-dashed border-slate-300 rounded-2xl p-10 text-center cursor-pointer hover:border-violet-400 hover:bg-violet-50/30 transition-colors">
+                    <label id="pr-dropzone" for="pr-file-input" class="block bg-white border-2 border-dashed border-slate-300 rounded-2xl p-6 sm:p-10 text-center cursor-pointer hover:border-violet-400 hover:bg-violet-50/30 transition-colors">
                         <span class="block mx-auto w-12 h-12 rounded-2xl bg-violet-50 text-violet-600 flex items-center justify-center mb-3"><i data-lucide="file-up" class="w-6 h-6"></i></span>
                         <span id="pr-file-name" class="block text-base font-bold text-slate-800">Drop your paper here, or click to browse</span>
                         <span class="block text-xs text-slate-500 mt-1">Word .docx files. Saved from an older .doc? In Word choose File &gt; Save As &gt; Word Document (.docx).</span>
@@ -402,7 +417,7 @@
 
                     <div class="bg-white border border-slate-200 rounded-2xl p-5 space-y-4">
                         <h3 class="font-bold text-slate-800 text-sm">Options</h3>
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
                             <div>
                                 <label for="pr-type" class="block text-xs font-semibold text-slate-600 mb-1">Paper type</label>
                                 <select id="pr-type" class="w-full border border-slate-200 rounded-xl p-3 text-sm bg-white">
@@ -464,11 +479,17 @@
         </div>
 
         <!-- Integrated Editor and Workspace Preview Workspace -->
-        <div id="editor-view" class="hidden flex-1 flex overflow-hidden w-full">
+        <div id="editor-view" data-pane="edit" class="hidden flex-1 flex flex-col lg:flex-row overflow-hidden w-full">
+            <div class="lg:hidden shrink-0 bg-white border-b border-slate-200 px-3 py-2">
+                <div role="tablist" class="flex gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200">
+                    <button type="button" role="tab" id="pane-tab-edit" onclick="setEditorPane('edit')" class="flex-1 py-2 text-xs font-bold rounded-lg transition-all bg-white text-blue-600 shadow-sm" aria-selected="true">Edit</button>
+                    <button type="button" role="tab" id="pane-tab-preview" onclick="setEditorPane('preview')" class="flex-1 py-2 text-xs font-bold rounded-lg transition-all text-slate-600" aria-selected="false">Preview</button>
+                </div>
+            </div>
             
             <!-- Left Side Interactive Control Dock -->
-            <div class="w-1/2 bg-white flex flex-col overflow-y-auto border-r border-slate-200 custom-scrollbar">
-                <div class="p-8 space-y-8">
+            <div id="edit-pane" class="w-full lg:w-1/2 flex-1 min-h-0 bg-white flex flex-col overflow-y-auto lg:border-r border-slate-200 custom-scrollbar">
+                <div class="p-4 sm:p-6 lg:p-8 space-y-6 lg:space-y-8">
                     <div id="table-editor-panel" class="space-y-8">
                     
                     <!-- Structural Customizer -->
@@ -566,7 +587,7 @@
                                 <textarea id="note-general" rows="2" class="w-full border border-slate-200 rounded-xl p-3 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all placeholder-slate-400" placeholder="e.g., N = 150. All values rounded to nearest decimal." oninput="updatePreview()"></textarea>
                             </div>
                             
-                            <div class="grid grid-cols-2 gap-4">
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <div>
                                     <label class="block text-xs font-semibold text-slate-600 mb-1">Specific note</label>
                                     <textarea id="note-specific" rows="2" class="w-full border border-slate-200 rounded-xl p-3 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all placeholder-slate-400" placeholder="e.g., a Value indicates extreme outlier." oninput="updatePreview()"></textarea>
@@ -743,7 +764,7 @@
                             </p>
 
                             <div class="space-y-4">
-                                <div class="grid grid-cols-3 gap-4">
+                                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
                                     <div class="col-span-2">
                                         <label class="block text-xs font-semibold text-slate-600 mb-1">Source Type</label>
                                         <select id="cite-type" onchange="handleCiteTypeChange()" class="w-full border border-slate-200 rounded-xl p-3 text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all bg-white">
@@ -794,7 +815,7 @@
                                         <label class="block text-xs font-semibold text-slate-600 mb-1">Month, Day (Webpage)</label>
                                         <input type="text" id="cite-monthday" placeholder="e.g. October 14" oninput="updateCitationPreview()" class="w-full border border-slate-200 rounded-xl p-3 text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all bg-white">
                                     </div>
-                                    <div id="cite-journal-meta-wrapper" class="grid grid-cols-3 gap-2">
+                                    <div id="cite-journal-meta-wrapper" class="grid grid-cols-1 sm:grid-cols-3 gap-2">
                                         <div id="cite-wrap-volume">
                                             <label class="block text-xs font-semibold text-slate-600 mb-1">Volume</label>
                                             <input type="text" id="cite-volume" placeholder="585" oninput="updateCitationPreview()" class="w-full border border-slate-200 rounded-xl p-3 text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all bg-white">
@@ -913,7 +934,7 @@
                                 <label id="toc-title-label" for="toc-title-input" class="block text-xs font-semibold text-slate-600 mb-1">Page title</label>
                                 <input type="text" id="toc-title-input" oninput="tocTitleChanged()" class="w-full border border-slate-200 rounded-xl p-3 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none">
                             </div>
-                            <div class="grid grid-cols-2 gap-4">
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <div>
                                     <label for="toc-opt-spacing" class="block text-xs font-semibold text-slate-600 mb-1">Line spacing</label>
                                     <select id="toc-opt-spacing" onchange="tocOptionChanged()" class="w-full border border-slate-200 rounded-xl p-3 text-sm bg-white">
@@ -948,7 +969,7 @@
             </div>
 
             <!-- Right Side Workspace Canvas (Live Preview) -->
-            <div class="w-1/2 min-w-0 preview-canvas p-10 flex flex-col overflow-y-auto custom-scrollbar relative">
+            <div id="preview-pane" class="w-full lg:w-1/2 flex-1 min-h-0 min-w-0 preview-canvas p-3 sm:p-6 lg:p-10 flex flex-col overflow-y-auto custom-scrollbar relative">
                 
                 <div class="max-w-3xl w-full mx-auto flex flex-col h-full">
                     
@@ -968,11 +989,11 @@
                     
                     <!-- Premium Manuscript Layout Sandbox -->
                     <div class="flex-1 flex justify-center items-start">
-                        <div class="bg-white rounded-xl shadow-2xl border border-slate-200 p-12 w-full transform origin-top transition-all duration-300 relative" id="preview-paper">
+                        <div class="bg-white rounded-xl shadow-2xl border border-slate-200 p-4 sm:p-8 lg:p-12 w-full transform origin-top transition-all duration-300 relative min-w-0" id="preview-paper">
                             
                             <!-- Document Margin Overlay Hint -->
-                            <div class="absolute inset-y-0 left-0 w-12 border-r border-dashed border-red-100 pointer-events-none opacity-50"></div>
-                            <div class="absolute inset-y-0 right-0 w-12 border-l border-dashed border-red-100 pointer-events-none opacity-50"></div>
+                            <div class="hidden sm:block absolute inset-y-0 left-0 w-12 border-r border-dashed border-red-100 pointer-events-none opacity-50"></div>
+                            <div class="hidden sm:block absolute inset-y-0 right-0 w-12 border-l border-dashed border-red-100 pointer-events-none opacity-50"></div>
 
                             <!-- Target HTML Copy/Export Wrapper -->
                             <div id="table-export-container" class="apa-preview-container">
@@ -1063,9 +1084,13 @@
         </div>
     </main>
 
+    <footer class="shrink-0 bg-white/80 border-t border-slate-200/80 px-4 py-2 text-center text-[11px] leading-snug text-slate-500">
+        Co-developed with <a href="https://claude.ai" target="_blank" rel="noopener" class="font-semibold text-slate-600 hover:underline">Claude</a> (AI by Anthropic) and tested by humans. Your files and text stay on your device.
+    </footer>
+
     <!-- Paste Table Modal -->
-    <div id="paste-table-modal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-6">
-        <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-xl p-8 space-y-5">
+    <div id="paste-table-modal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-6">
+        <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-xl max-h-[92vh] overflow-y-auto p-5 sm:p-8 space-y-5">
             <div class="flex items-start justify-between">
                 <div class="space-y-1">
                     <h3 class="text-lg font-bold text-slate-900">Import Table from Clipboard</h3>

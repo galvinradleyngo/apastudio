@@ -111,8 +111,8 @@ function prRenderReview() {
     const manual = s.findings.filter(f => f.tier === 'manual');
     const auto = [...s.auto.values()];
     const questionCount = asks.reduce((n, f) => n + f.items.length, 0);
-    const card = (n, label, tone) => `<div class="bg-white border border-slate-200 rounded-2xl p-4"><p class="text-3xl font-extrabold ${tone}">${n}</p><p class="text-xs font-semibold text-slate-500 mt-1">${label}</p></div>`;
-    let html = `<div class="grid grid-cols-3 gap-4">${card(auto.length, 'fixes done automatically', 'text-emerald-600')}${card(questionCount, 'changes waiting for your OK', 'text-violet-600')}${card(manual.length, 'notes for you to handle', 'text-amber-600')}</div>`;
+    const card = (n, label, tone) => `<div class="bg-white border border-slate-200 rounded-2xl p-3 sm:p-4"><p class="text-2xl sm:text-3xl font-extrabold ${tone}">${n}</p><p class="text-[11px] sm:text-xs font-semibold text-slate-500 mt-1">${label}</p></div>`;
+    let html = `<div class="grid grid-cols-3 gap-2 sm:gap-4">${card(auto.length, 'fixes done automatically', 'text-emerald-600')}${card(questionCount, 'changes waiting for your OK', 'text-violet-600')}${card(manual.length, 'notes for you to handle', 'text-amber-600')}</div>`;
 
     html += `<details class="bg-white border border-slate-200 rounded-2xl p-5"><summary class="cursor-pointer font-bold text-slate-800 text-sm">Fixed automatically (formatting only, no wording changed)</summary><ul class="mt-3 space-y-1.5 text-sm text-slate-700">${auto.map(a => `<li class="flex gap-2"><span class="text-emerald-600">✓</span><span>${escapeHtml(a.label)}${a.count > 1 ? ` <span class="text-slate-400">(${a.count})</span>` : ''}</span></li>`).join('')}</ul></details>`;
 
@@ -123,7 +123,7 @@ function prRenderReview() {
             html += `<div class="space-y-3"><h4 class="text-xs font-extrabold uppercase tracking-widest text-violet-600">${escapeHtml(g)}</h4>`;
             asks.filter(f => f.group === g).forEach(f => {
                 html += `<div class="bg-white border border-slate-200 rounded-2xl p-5 space-y-3" data-finding="${f.id}">
-                    <div class="flex items-start justify-between gap-3">
+                    <div class="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
                         <div><p class="font-bold text-slate-800 text-sm">${escapeHtml(f.title)}</p><p class="text-xs text-slate-500 mt-0.5">${escapeHtml(f.detail)}</p></div>
                         <label class="shrink-0 text-xs font-semibold text-violet-700 flex items-center gap-1.5 cursor-pointer"><input type="checkbox" class="pr-all rounded border-slate-300" aria-label="Approve all in: ${escapeHtml(f.title)}"> All ${f.items.length}</label>
                     </div>
@@ -142,7 +142,7 @@ function prRenderReview() {
 
     html += `<div class="sticky bottom-0 -mx-2 bg-slate-50/95 backdrop-blur border-t border-slate-200 py-4 px-2 flex flex-wrap items-center justify-between gap-3">
         <p class="text-sm text-slate-600"><strong id="pr-approved-count">0</strong> of ${questionCount} suggested changes approved</p>
-        <div class="flex gap-2"><button type="button" onclick="prReset()" class="text-sm font-semibold text-slate-600 hover:bg-white border border-slate-200 px-4 py-2.5 rounded-xl">Start over</button>
+        <div class="flex gap-2 w-full sm:w-auto"><button type="button" onclick="prReset()" class="text-sm font-semibold text-slate-600 hover:bg-white border border-slate-200 px-4 py-2.5 rounded-xl">Start over</button>
         <button type="button" onclick="prBuild()" class="bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white font-semibold py-2.5 px-5 rounded-xl shadow-md flex items-center gap-2">Build my reformatted paper</button></div>
     </div>`;
     const host = prEl('pr-step-review');

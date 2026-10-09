@@ -297,17 +297,17 @@ function tocRenderRows() {
     }
     entries.forEach((entry, i) => {
         const row = document.createElement('div');
-        row.className = 'flex items-center gap-2';
+        row.className = 'flex flex-wrap sm:flex-nowrap items-center gap-2 pb-2 sm:pb-0 border-b border-slate-100 sm:border-0';
         row.dataset.index = i;
         const levelOptions = [1, 2, 3, 4, 5].map(n => `<option value="${n}"${n === entry.level ? ' selected' : ''}>${n}</option>`).join('');
         row.innerHTML = `
-            ${isContents ? `<select aria-label="Heading level for entry ${i + 1}" data-field="level" class="w-14 shrink-0 border border-slate-200 rounded-lg p-2 text-sm bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none">${levelOptions}</select>` : ''}
-            <input type="text" aria-label="Entry ${i + 1} text" data-field="text" value="${escapeHtml(entry.text).replace(/"/g, '&quot;')}" placeholder="${isContents ? 'Heading text' : (tocState.active === 'tables' ? 'Table 1. Title of the table' : 'Figure 1. Title of the figure')}" class="min-w-0 flex-1 border border-slate-200 rounded-lg p-2 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none">
-            <input type="text" inputmode="numeric" aria-label="Entry ${i + 1} page" data-field="page" value="${escapeHtml(String(entry.page))}" placeholder="Page" class="w-16 shrink-0 border border-slate-200 rounded-lg p-2 text-sm text-center focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none">
+            ${isContents ? `<select aria-label="Heading level for entry ${i + 1}" data-field="level" class="w-14 shrink-0 min-h-[2.5rem] border border-slate-200 rounded-lg p-2 text-sm bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none">${levelOptions}</select>` : ''}
+            <input type="text" aria-label="Entry ${i + 1} text" data-field="text" value="${escapeHtml(entry.text).replace(/"/g, '&quot;')}" placeholder="${isContents ? 'Heading text' : (tocState.active === 'tables' ? 'Table 1. Title of the table' : 'Figure 1. Title of the figure')}" class="min-w-0 w-full basis-full order-first sm:order-none sm:w-auto sm:basis-0 sm:flex-1 min-h-[2.5rem] border border-slate-200 rounded-lg p-2 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none">
+            <input type="text" inputmode="numeric" aria-label="Entry ${i + 1} page" data-field="page" value="${escapeHtml(String(entry.page))}" placeholder="Page" class="w-14 sm:w-16 shrink-0 min-h-[2.5rem] border border-slate-200 rounded-lg p-2 text-sm text-center focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none">
             <div class="flex shrink-0">
-                <button type="button" data-act="up" aria-label="Move entry ${i + 1} up" class="px-1.5 py-1 text-slate-400 hover:text-slate-800 rounded">&uarr;</button>
-                <button type="button" data-act="down" aria-label="Move entry ${i + 1} down" class="px-1.5 py-1 text-slate-400 hover:text-slate-800 rounded">&darr;</button>
-                <button type="button" data-act="del" aria-label="Delete entry ${i + 1}" class="px-1.5 py-1 text-slate-400 hover:text-rose-600 rounded">&times;</button>
+                <button type="button" data-act="up" aria-label="Move entry ${i + 1} up" class="tap-target px-1.5 py-1 text-slate-400 hover:text-slate-800 rounded">&uarr;</button>
+                <button type="button" data-act="down" aria-label="Move entry ${i + 1} down" class="tap-target px-1.5 py-1 text-slate-400 hover:text-slate-800 rounded">&darr;</button>
+                <button type="button" data-act="del" aria-label="Delete entry ${i + 1}" class="tap-target px-1.5 py-1 text-slate-400 hover:text-rose-600 rounded">&times;</button>
             </div>`;
         host.appendChild(row);
     });

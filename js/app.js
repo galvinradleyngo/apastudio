@@ -81,6 +81,19 @@ function setMode(mode) {
     lucide.createIcons();
 }
 
+function setEditorPane(pane) {
+    document.getElementById('editor-view').dataset.pane = pane;
+    [['edit', 'pane-tab-edit'], ['preview', 'pane-tab-preview']].forEach(([name, id]) => {
+        const on = name === pane;
+        const b = document.getElementById(id);
+        ['bg-white', 'text-blue-600', 'shadow-sm'].forEach(c => b.classList.toggle(c, on));
+        b.classList.toggle('text-slate-600', !on);
+        b.setAttribute('aria-selected', on ? 'true' : 'false');
+    });
+    const target = document.getElementById(pane === 'edit' ? 'edit-pane' : 'preview-pane');
+    if (target) target.scrollTop = 0;
+}
+
 function showHome() {
     document.getElementById('home-tools').classList.remove('hidden');
     document.getElementById('table-templates-section').classList.add('hidden');
@@ -94,6 +107,7 @@ function showHome() {
 }
 
 function showEditor() {
+    setEditorPane('edit');
     document.getElementById('home-view').style.display = 'none';
     document.getElementById('paper-view').style.display = 'none';
     document.getElementById('editor-view').style.display = 'flex';

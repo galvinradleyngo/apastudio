@@ -10,12 +10,104 @@ class DocxError extends Error {
     constructor(code, message) { super(message); this.code = code; }
 }
 
+// Pure-JS inflate (RFC 1951) for browsers without DecompressionStream (older Safari/Firefox).
+function pureInflate(data) {
+    const LBASE = [3, 4, 5, 6, 7, 8, 9, 10, 11, 13, 15, 17, 19, 23, 27, 31, 35, 43, 51, 59, 67, 83, 99, 115, 131, 163, 195, 227, 258];
+    const LEXT = [0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5, 0];
+    const DBASE = [1, 2, 3, 4, 5, 7, 9, 13, 17, 25, 33, 49, 65, 97, 129, 193, 257, 385, 513, 769, 1025, 1537, 2049, 3073, 4097, 6145, 8193, 12289, 16385, 24577];
+    const DEXT = [0, 0, 0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 8, 9, 9, 10, 10, 11, 11, 12, 12, 13, 13];
+    const CLORD = [16, 17, 18, 0, 8, 7, 9, 6, 10, 5, 11, 4, 12, 3, 13, 2, 14, 1, 15];
+    let pos = 0, bb = 0, bc = 0, op = 0;
+    let out = new Uint8Array(Math.max(1024, data.length * 4));
+    const bits = n => {
+        while (bc < n) {
+            if (pos >= data.length) throw new Error('inflate: unexpected end of data');
+            bb |= data[pos++] << bc; bc += 8;
+        }
+        const v = bb & ((1 << n) - 1);
+        bb >>>= n; bc -= n;
+        return v;
+    };
+    const build = lengths => {
+        const count = new Uint16Array(16), symbol = new Uint16Array(lengths.length), offs = new Uint16Array(16);
+        lengths.forEach(l => { count[l]++; });
+        count[0] = 0;
+        for (let i = 1; i < 16; i++) offs[i] = offs[i - 1] + count[i - 1];
+        lengths.forEach((l, s) => { if (l) symbol[offs[l]++] = s; });
+        return { count, symbol };
+    };
+    const decode = h => {
+        let code = 0, first = 0, index = 0;
+        for (let len = 1; len < 16; len++) {
+            code |= bits(1);
+            const c = h.count[len];
+            if (code - c < first) return h.symbol[index + (code - first)];
+            index += c; first += c; first <<= 1; code <<= 1;
+        }
+        throw new Error('inflate: invalid code');
+    };
+    const ensure = n => { if (op + n > out.length) { const o = new Uint8Array(Math.max(out.length * 2, op + n)); o.set(out); out = o; } };
+    let last;
+    do {
+        last = bits(1);
+        const type = bits(2);
+        if (type === 0) {
+            bb = 0; bc = 0;
+            const len = data[pos] | (data[pos + 1] << 8);
+            pos += 4;
+            ensure(len); out.set(data.subarray(pos, pos + len), op); op += len; pos += len;
+            continue;
+        }
+        let lit, dist;
+        if (type === 1) {
+            const l = [];
+            for (let i = 0; i < 288; i++) l.push(i < 144 ? 8 : i < 256 ? 9 : i < 280 ? 7 : 8);
+            lit = build(l); dist = build(new Array(30).fill(5));
+        } else if (type === 2) {
+            const nlen = bits(5) + 257, ndist = bits(5) + 1, ncode = bits(4) + 4;
+            const lens = new Array(19).fill(0);
+            for (let i = 0; i < ncode; i++) lens[CLORD[i]] = bits(3);
+            const cl = build(lens), all = [];
+            while (all.length < nlen + ndist) {
+                const sym = decode(cl);
+                if (sym < 16) all.push(sym);
+                else {
+                    let rep, val = 0;
+                    if (sym === 16) { val = all[all.length - 1]; rep = 3 + bits(2); }
+                    else if (sym === 17) rep = 3 + bits(3);
+                    else rep = 11 + bits(7);
+                    while (rep--) all.push(val);
+                }
+            }
+            lit = build(all.slice(0, nlen)); dist = build(all.slice(nlen));
+        } else throw new Error('inflate: bad block type');
+        for (;;) {
+            const sym = decode(lit);
+            if (sym < 256) { ensure(1); out[op++] = sym; }
+            else if (sym === 256) break;
+            else {
+                const s = sym - 257;
+                const len = LBASE[s] + bits(LEXT[s]);
+                const ds = decode(dist);
+                const d = DBASE[ds] + bits(DEXT[ds]);
+                ensure(len);
+                for (let i = 0; i < len; i++) { out[op] = out[op - d]; op++; }
+            }
+        }
+    } while (!last);
+    return out.slice(0, op);
+}
+
 async function inflateRaw(bytes) {
-    if (typeof DecompressionStream === 'undefined') {
-        throw new DocxError('UNSUPPORTED_BROWSER', 'This browser cannot open Word files. Please use a current version of Chrome, Edge, Firefox or Safari.');
+    if (typeof DecompressionStream !== 'undefined' && !inflateRaw.forceFallback) {
+        try {
+            const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
+            return new Uint8Array(await new Response(stream).arrayBuffer());
+        } catch (e) { /* fall through to the pure-JS version */ }
     }
-    const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
-    return new Uint8Array(await new Response(stream).arrayBuffer());
+    try { return pureInflate(bytes); } catch (e) {
+        throw new DocxError('NOT_DOCX', 'That Word file could not be unpacked (' + e.message + ').');
+    }
 }
 
 // Returns a Map of part name -> Uint8Array. Throws DocxError with a friendly message for non-.docx files.

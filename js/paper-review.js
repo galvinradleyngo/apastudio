@@ -331,9 +331,9 @@ function prFixWhitespace(s) {
         if (x.kind !== 'p' || !PR_TEXT_ROLES.has(x.role) || x.hasRevisions) return;
         let text = prText(x.el);
         const hits = [];
-        const re = /(?<=\S) {2,}(?=\S)/g;
+        const re = /(\S)( {2,})(?=\S)/g;
         let m;
-        while ((m = re.exec(text))) hits.push([m.index, m.index + m[0].length]);
+        while ((m = re.exec(text))) hits.push([m.index + 1, m.index + m[0].length]);
         hits.reverse().forEach(([a, b]) => { prReplace(x.el, a, b, ' '); doubles++; });
         text = prText(x.el);
         const t = text.match(/[ \t ]+$/);
@@ -540,16 +540,18 @@ function prFormatParagraphs(s) {
 // Statistical symbols (M, SD, p, t, F, r, n, N, d, df) are italic in APA 7. Formatting only.
 function prItalicizeStats(s) {
     let count = 0;
-    const re = /(?<![\p{L}\p{N}_\-])(SD|SE|df|M|p|t|F|r|n|N|d)(?=\s*(?:=|<|>|≤|≥|\(\s*\d))/gu;
+    const re = /(^|[^\p{L}\p{N}_\-])(SD|SE|df|M|p|t|F|r|n|N|d)(?=\s*(?:=|<|>|≤|≥|\(\s*\d))/gu;
     s.list.forEach(x => {
         if (x.kind !== 'p' || !['body', 'abstract', 'blockQuote', 'list'].includes(x.role)) return;
         const text = prText(x.el);
         const hits = [];
         let m;
+        re.lastIndex = 0;
         while ((m = re.exec(text))) {
-            // t(23) and F(1, 20) need statistical context; skip a lone "d(" or "n(" in prose.
-            if (/^[dnr]$/.test(m[1]) && !/^\s*(=|<|>)/.test(text.slice(m.index + 1))) continue;
-            hits.push([m.index, m.index + m[1].length]);
+            const start = m.index + m[1].length;
+            // A lone "d" or "n" or "r" counts only before = < >, so prose like "n (the sample)" is left alone.
+            if (/^[dnr]$/.test(m[2]) && !/^\s*(=|<|>)/.test(text.slice(start + 1))) continue;
+            hits.push([start, start + m[2].length]);
         }
         if (!hits.length) return;
         hits.reverse().forEach(([a, b]) => { prFormatRange(x.el, a, b, { italic: true }); count++; });
