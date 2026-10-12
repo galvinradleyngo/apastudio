@@ -321,7 +321,7 @@
                     </div>
                 <p id="privacy-note" class="max-w-3xl mx-auto text-center text-xs text-slate-500 leading-relaxed flex items-start justify-center gap-2">
                     <i data-lucide="shield-check" class="w-4 h-4 text-emerald-600 shrink-0 mt-0.5"></i>
-                    <span><strong class="text-slate-700">Your data stays on your device.</strong> Papers, tables, bibliographies and contents pages are processed in your browser and never uploaded. The only exception is the Citation Generator, which sends the link or DOI you enter to public lookup services (such as Crossref) to find its details. A saved bibliography draft is kept in this browser only, and you can discard it from the home page.</span>
+                    <span><strong class="text-slate-700">Your data stays on your device.</strong> Papers, tables, bibliographies and contents pages are processed in your browser and never uploaded. The only exception is the Citation Generator, which sends the link or DOI you enter to public lookup services (such as Crossref) to find its details. A saved bibliography draft and your diagram are kept in this browser only: if you clear your browser data or cache, use a private window, or open the app in a different browser or on another device, they will not be there. Download your files (Word, PDF, or a saved project) to keep your work.</span>
                 </p>
                 </div>
 
@@ -579,7 +579,7 @@
                                 <button type="button" onclick="dgClearAll()" class="text-xs font-semibold text-rose-700 hover:bg-rose-50 border border-slate-200 px-3 py-2 rounded-lg">Clear</button>
                                 <input id="dg-file-input" type="file" accept=".json,application/json" class="sr-only">
                             </div>
-                            <p class="text-[11px] text-slate-500">Your diagram is saved in this browser as you work and is never uploaded.</p>
+                            <p class="text-[11px] text-slate-500 leading-relaxed">Your diagram is saved automatically <strong>in this browser only</strong> and is never uploaded. If you clear the cache or site data, use a private window, or open another browser or device, it will not be there. Use <strong>Save project</strong> to keep a copy you can reopen anywhere.</p>
                         </div>
                     </div>
                 </div>
@@ -734,6 +734,7 @@
                                 <span><strong>Rebuild entries from their parts</strong> (standardizes punctuation, capitalization and italics). Entries that can't be read with confidence stay as typed.</span>
                             </label>
                             <p class="text-xs text-slate-500">Removes bullets and numbers, sorts alphabetically and applies hanging indents. Import accepts BibTeX or RIS exports from Zotero, Mendeley or EndNote.</p>
+                            <p class="text-[11px] text-slate-400">Your list is saved in this browser only. Clearing the cache or switching browser or device removes it, so export to Word to keep a copy.</p>
                                                 </div>
 
                         <details class="bg-slate-50 border border-slate-200/80 rounded-2xl px-5 py-3">

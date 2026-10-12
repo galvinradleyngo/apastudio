@@ -53,7 +53,7 @@ This app was co-developed with Claude (Anthropic) and tested by humans. The foot
 - **Add to bibliography** now updates the bibliography immediately, replaces the built-in sample, skips duplicates and tells you the total.
 
 ## Privacy
-Everything runs in the browser. Uploaded papers, tables, bibliographies and contents pages are never sent to a server. The one exception is the Citation Generator, which sends the DOI or link you enter to public services (Crossref, DataCite, and the optional metadata Worker) to look it up. The saved bibliography draft lives in this browser's localStorage only.
+Everything runs in the browser. Uploaded papers, tables, bibliographies and contents pages are never sent to a server. The one exception is the Citation Generator, which sends the DOI or link you enter to public services (Crossref, DataCite, and the optional metadata Worker) to look it up. The saved bibliography draft and the diagram autosave live in this browser's localStorage only: they are lost if site data or the cache is cleared, in private windows, and in other browsers or on other devices. The other tools (citations, tables, contents, paper reviewer) keep nothing between visits. Export to Word, PDF or a saved project to keep work.
 
 ## URL handling notes
 - Web links resolve in this order: DOI in the link, arXiv, YouTube (oEmbed), Wikipedia, then page metadata (JSON-LD, Dublin Core, `citation_*`, Open Graph). If the page title matches a published work in Crossref, that record is used. If the live page is blocked, the Wayback Machine copy is tried.
