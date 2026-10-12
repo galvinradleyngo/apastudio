@@ -7,6 +7,7 @@ function loadPaperReviewer() {
     prEl('home-view').style.display = 'none';
     prEl('editor-view').style.display = 'none';
     prEl('paper-view').style.display = 'block';
+    if (prEl('diagram-view')) prEl('diagram-view').style.display = 'none';
     prEl('btn-home').style.display = 'flex';
     prEl('btn-export').style.display = 'none';
     prEl('btn-copy').style.display = 'none';

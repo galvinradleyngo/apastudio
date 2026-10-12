@@ -39,6 +39,13 @@ A modern, browser-based academic formatting workspace for researchers, educators
 ## Credits
 This app was co-developed with Claude (Anthropic) and tested by humans. The footer on every screen says so.
 
+## Diagram Maker
+- Interactive canvas for APA 7 figures: boxes, rounded boxes, ovals, decision diamonds and labels; draw arrows between shapes (straight or elbow; solid, dashed or dotted; one- or two-way or plain lines; with labels); drag, resize, duplicate, undo/redo, snap to grid and keyboard nudging.
+- Six templates: mediation, moderation, conceptual framework, participant flow (CONSORT-style), process flowchart and cycle.
+- APA conventions: figure number (bold) and italic title-case title above the figure, optional note, black-and-white with gray fills, 8 to 14 pt sans-serif text, alternative text field, and an APA check list (title case, missing title/number/alt text, unconnected or overlapping shapes, text that would print under 8 pt).
+- One unit on the canvas is one printed point; a figure wider than 6.5 inches is scaled down on export and the check warns if that pushes text under 8 pt.
+- Exports: **Word** (`.docx` with the caption and every shape, arrow and label as real, grouped, editable Word shapes, plus a picture fallback), **PDF** (vector, one APA page), **PNG** (300 dpi) and **SVG**. Projects can be saved to and opened from a `.json` file; work is also kept in the browser's local storage.
+
 ## Citation Generator updates
 - **Several PDFs at once:** select or drop multiple files; each becomes an entry in a list where you can edit, remove or add it to the bibliography, or add them all.
 - **Several links at once:** paste multiple links or DOIs separated by spaces or new lines.
@@ -82,6 +89,7 @@ No build step; `index.html` loads classic scripts in this order:
 - `js/reference-parser.js`: reference parser and rebuild. No DOM.
 - `js/web-metadata.js`: URL and page-metadata helpers.
 - `js/docx-io.js`: `.docx` ZIP reader/writer and OOXML helpers. `js/paper-ooxml.js`, `js/paper-review.js`, `js/paper-findings.js`, `js/paper-finish.js`: Paper Reviewer engine (needs DOMParser). `js/toc-formatter.js`: contents logic and UI. `js/paper-review-ui.js`: reviewer wizard.
+- `js/diagram-core.js` (geometry, layout, SVG, APA checks; no DOM), `js/diagram-export.js` (PDF writer and Word shapes), `js/diagram-maker.js` (editor UI).
 - `js/app.js`, `js/table-formatter.js`, `js/bibliography-ui.js`, `js/citation-ui.js`, `js/export.js`, `js/main.js`: UI for each tool, exports, and startup.
 - `worker/`: optional Cloudflare Worker for fetching pages. `tests/`: see below.
 

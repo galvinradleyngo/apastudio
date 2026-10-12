@@ -101,6 +101,7 @@ function showHome() {
     refreshContinueStrip();
     document.getElementById('home-view').style.display = 'flex';
     document.getElementById('paper-view').style.display = 'none';
+    document.getElementById('diagram-view').style.display = 'none';
     document.getElementById('editor-view').style.display = 'none';
     document.getElementById('btn-home').style.display = 'none';
     document.getElementById('btn-export').style.display = 'none';
@@ -111,6 +112,7 @@ function showEditor() {
     setEditorPane('edit');
     document.getElementById('home-view').style.display = 'none';
     document.getElementById('paper-view').style.display = 'none';
+    document.getElementById('diagram-view').style.display = 'none';
     document.getElementById('editor-view').style.display = 'flex';
     document.getElementById('btn-home').style.display = 'flex';
     document.getElementById('btn-export').style.display = 'flex';

@@ -230,17 +230,19 @@ function apaHeaderXml(runningHead = '') {
 
 const DOCX_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
 
-function buildDocxPackage({ bodyXml, stylesXml, headerXml = '' }) {
+// `media` is [{ name: 'image1.png', data: Uint8Array, rid: 'rIdImg1', type: 'png' }]; document XML refers to rid.
+function buildDocxPackage({ bodyXml, stylesXml, headerXml = '', media = [] }) {
     const sect = `<w:sectPr>${headerXml ? '<w:headerReference w:type="default" r:id="rId2"/>' : ''}<w:pgSz w:w="12240" w:h="15840"/><w:pgMar w:top="1440" w:right="1440" w:bottom="1440" w:left="1440" w:header="720" w:footer="720" w:gutter="0"/></w:sectPr>`;
     const documentXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document xmlns:w="${W_NS}" xmlns:r="${R_NS}"><w:body>${bodyXml}${sect}</w:body></w:document>`;
     const files = [
-        { name: '[Content_Types].xml', data: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/><Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/>${headerXml ? '<Override PartName="/word/header1.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.header+xml"/>' : ''}</Types>` },
+        { name: '[Content_Types].xml', data: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/>${[...new Set(media.map(m => m.type))].map(ext => `<Default Extension="${ext}" ContentType="image/${ext === 'jpg' ? 'jpeg' : ext}"/>`).join('')}<Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/><Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/>${headerXml ? '<Override PartName="/word/header1.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.header+xml"/>' : ''}</Types>` },
         { name: '_rels/.rels', data: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="${DOCX_REL}/officeDocument" Target="word/document.xml"/></Relationships>` },
         { name: 'word/document.xml', data: documentXml },
-        { name: 'word/_rels/document.xml.rels', data: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="${DOCX_REL}/styles" Target="styles.xml"/>${headerXml ? `<Relationship Id="rId2" Type="${DOCX_REL}/header" Target="header1.xml"/>` : ''}</Relationships>` },
+        { name: 'word/_rels/document.xml.rels', data: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="${DOCX_REL}/styles" Target="styles.xml"/>${headerXml ? `<Relationship Id="rId2" Type="${DOCX_REL}/header" Target="header1.xml"/>` : ''}${media.map(m => `<Relationship Id="${m.rid}" Type="${DOCX_REL}/image" Target="media/${m.name}"/>`).join('')}</Relationships>` },
         { name: 'word/styles.xml', data: stylesXml }
     ];
     if (headerXml) files.push({ name: 'word/header1.xml', data: headerXml });
+    media.forEach(m => files.push({ name: `word/media/${m.name}`, data: m.data }));
     return buildZip(files);
 }
 
@@ -256,3 +258,13 @@ function downloadBlob(blob, filename) {
 
 // Lets the browser repaint between steps so progress bars visibly advance.
 const nextFrame = (ms = 0) => new Promise(resolve => setTimeout(resolve, ms));
+
+
+// An inline picture paragraph run. Size is in EMU (914400 per inch). `alt` becomes the picture's alternative text.
+function inlinePictureXml({ rid, cx, cy, alt = '', name = 'Figure', id = 1 }) {
+    const a = 'http://schemas.openxmlformats.org/drawingml/2006/main';
+    const pic = 'http://schemas.openxmlformats.org/drawingml/2006/picture';
+    const wp = 'http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing';
+    const d = xmlEscape(alt);
+    return `<w:r><w:drawing><wp:inline xmlns:wp="${wp}" distT="0" distB="0" distL="0" distR="0"><wp:extent cx="${cx}" cy="${cy}"/><wp:docPr id="${id}" name="${xmlEscape(name)}" descr="${d}"/><wp:cNvGraphicFramePr><a:graphicFrameLocks xmlns:a="${a}" noChangeAspect="1"/></wp:cNvGraphicFramePr><a:graphic xmlns:a="${a}"><a:graphicData uri="${pic}"><pic:pic xmlns:pic="${pic}"><pic:nvPicPr><pic:cNvPr id="${id}" name="${xmlEscape(name)}.png" descr="${d}"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed="${rid}"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r>`;
+}
