@@ -2,6 +2,7 @@
 
 // ── Citation Generator Engine ──────────────────────────────────────────
 let currentCitationPlain = '';
+let lastCitationStatus = { state: null, title: '', desc: '' };
 let currentCitationMarked = '';
 
 const sampleCitations = {
@@ -87,19 +88,15 @@ function initPdfDropzone() {
     });
 
     dropzone.addEventListener('drop', (e) => {
-        const dt = e.dataTransfer;
-        const files = dt.files;
-        if (files && files.length > 0) {
-            processPdfFile(files[0]);
-        }
+        const files = e.dataTransfer && e.dataTransfer.files;
+        if (files && files.length > 0) processPdfFiles(files);
     });
 }
 
 function handlePdfFileInput(e) {
-    const file = e.target.files && e.target.files[0];
-    if (file) {
-        processPdfFile(file);
-    }
+    const files = e.target.files;
+    if (files && files.length) processPdfFiles(files);
+    e.target.value = '';
 }
 
 function setCitationStatus(state, title, desc) {
@@ -109,6 +106,7 @@ function setCitationStatus(state, title, desc) {
     const descEl = document.getElementById('citation-status-desc');
 
     if (!card || !icon || !titleEl || !descEl) return;
+    lastCitationStatus = { state, title, desc };
 
     if (!state) {
         card.classList.add('hidden');
@@ -137,90 +135,378 @@ function setCitationStatus(state, title, desc) {
     lucide.createIcons();
 }
 
-async function processPdfFile(file) {
-    if (!file.name.toLowerCase().endsWith('.pdf')) {
-        setCitationStatus('error', 'Unsupported File', 'Please upload a PDF document (.pdf).');
-        return;
-    }
+// ── PDF reading: uploaded files and links to PDFs ──────────────────────
+const PDF_MAX_BYTES = 25 * 1024 * 1024;
+const PDF_BAD_TITLE = /^(untitled|microsoft word|document\d*|slide\d*|powerpoint|presentation|new document)\b|\.(docx?|pptx?|indd|tex|pdf|rtf)\s*$/i;
+const PDF_BAD_AUTHOR = /^(admin|administrator|user|owner|pc|unknown|microsoft|adobe|author|default|windows user|scanner|canon|hp|xerox|office|ghostscript)\b|[\\@]/i;
+const MONTHS_RE = 'January|February|March|April|May|June|July|August|September|October|November|December';
 
-    if (typeof pdfjsLib === 'undefined') {
-        setCitationStatus('error', 'PDF Parser Unavailable', 'PDF.js library is not loaded. Please check your network connection.');
-        return;
-    }
-
-    setCitationStatus('loading', 'Analyzing PDF...', `Reading ${file.name} and scanning for bibliographic data...`);
-
+function looksLikePdfUrl(urlStr) {
     try {
-        const arrayBuffer = await file.arrayBuffer();
-        const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
-        const pdf = await loadingTask.promise;
-
-        const metadata = await pdf.getMetadata().catch(() => ({}));
-        const info = (metadata && metadata.info) || {};
-
-        let text = '';
-        const pagesToScan = Math.min(pdf.numPages, 3);
-        for (let i = 1; i <= pagesToScan; i++) {
-            const page = await pdf.getPage(i);
-            const content = await page.getTextContent();
-            text += ' ' + content.items.map(item => item.str).join(' ');
-        }
-
-        // Search for DOI in PDF text
-        const detectedDoi = extractDoiFromText(text);
-        if (detectedDoi) {
-            setCitationStatus('loading', 'DOI Found in PDF', `Found DOI: ${detectedDoi}. Querying Crossref registry for verified metadata...`);
-            const resolved = await resolveDoiMetadata(detectedDoi);
-            if (resolved) {
-                setCitationStatus('success', 'Verified via Crossref Registry', `Auto-extracted complete metadata from DOI ${detectedDoi} found in "${file.name}".`);
-                showToast('Citation generated from PDF!');
-                return;
-            }
-        }
-
-        // If no DOI or Crossref failed, fallback to heuristic extraction from PDF metadata & text
-        extractMetadataFromPdfContent(info, text, file.name);
-    } catch (err) {
-        console.error('PDF parsing error:', err);
-        setCitationStatus('error', 'Could Not Read PDF', 'The PDF could not be read or contains scanned raster images without text.');
+        const u = new URL(/^https?:\/\//i.test(urlStr) ? urlStr : `https://${urlStr}`);
+        return /\.pdf$/i.test(u.pathname) || /(^|\/)pdf(\/|$)/i.test(u.pathname) || /[?&](?:format|type|output|file)=pdf\b/i.test(u.search);
+    } catch (e) {
+        return false;
     }
 }
 
-function extractMetadataFromPdfContent(info, text, filename) {
-    let title = info.Title && info.Title.trim() && !/^untitled/i.test(info.Title) ? info.Title.trim() : '';
-    let author = info.Author && info.Author.trim() ? info.Author.trim() : '';
-    let year = '';
+async function fetchPdfBytes(url) {
+    const enc = encodeURIComponent(url);
+    const attempt = async endpoint => {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 12000);
+        try {
+            const resp = await fetch(endpoint, { signal: controller.signal });
+            if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+            if ((+resp.headers.get('content-length') || 0) > PDF_MAX_BYTES) throw new Error('too-large');
+            const buf = await resp.arrayBuffer();
+            if (buf.byteLength > PDF_MAX_BYTES) throw new Error('too-large');
+            const head = new Uint8Array(buf.slice(0, 1024));
+            let s = '';
+            head.forEach(b => { s += String.fromCharCode(b); });
+            if (!s.includes('%PDF-')) throw new Error('not-pdf');
+            return buf;
+        } finally {
+            clearTimeout(timer);
+        }
+    };
+    const routes = [url];
+    if (METADATA_PROXY_URL) routes.push(`${METADATA_PROXY_URL}${METADATA_PROXY_URL.includes('?') ? '&' : '?'}url=${enc}`);
+    routes.push(`https://corsproxy.io/?url=${enc}`, `https://api.allorigins.win/raw?url=${enc}`, `https://api.codetabs.com/v1/proxy?quest=${enc}`);
+    return Promise.any(routes.map(attempt));
+}
 
-    if (info.CreationDate) {
-        const dateMatch = info.CreationDate.match(/D:(\d{4})/);
-        if (dateMatch) year = dateMatch[1];
-    }
+// Banner text that is often set bigger than the real title (journal names, article labels, institutions).
+const PDF_BANNER = /^(?:original|research|review|brief|short|special|invited|case)?\s*(?:article|report|paper|study|communication|letter|essay)s?$|^(?:journal|proceedings|transactions|international journal|annals|bulletin|review of|archives)\b|\b(?:copyright|all rights reserved|issn|isbn|doi:|https?:|www\.|received:|accepted:|available online|open access|preprint|working paper|technical report|elsevier|springer|wiley|taylor\s*&\s*francis|mdpi|frontiers in|plos|sage publications|cambridge university press|oxford university press)\b|^(?:abstract|contents|table of contents|page\s+\d+|volume|vol\.)\b/i;
+const PDF_INSTITUTION = /\b(?:university|college|institute|department|school of|faculty of|ministry|republic of|office of|division of|graduate school|polytechnic|academy)\b/i;
 
-    const lines = text.split(/\s{2,}|\n/).map(l => l.trim()).filter(l => l.length > 5);
-    if (!title && lines.length > 0) {
-        const candidate = lines.find(l => !/^(volume|issue|page|issn|isbn|http|www|copyright)/i.test(l));
-        if (candidate) title = candidate.slice(0, 150);
-    }
-    if (!title) {
-        title = filename.replace(/\.pdf$/i, '').replace(/[-_]+/g, ' ');
-    }
+function pdfWordCoverage(phrase, text) {
+    const words = (String(phrase).toLowerCase().match(/[\p{L}\p{N}]{3,}/gu) || []);
+    if (!words.length) return 0;
+    const have = new Set(String(text).toLowerCase().match(/[\p{L}\p{N}]{3,}/gu) || []);
+    return words.filter(w => have.has(w)).length / words.length;
+}
 
-    if (!year) {
-        const yearMatch = text.match(/\b(19\d{2}|20\d{2})\b/);
-        if (yearMatch) year = yearMatch[1];
+// Groups page-1 text into lines, then into blocks of equal type size, and returns candidate title blocks
+// ordered best first. Banner-like blocks and body-size text are dropped.
+function pdfTitleCandidates(items) {
+    const real = items.filter(it => it.str && it.str.trim() && it.transform);
+    if (!real.length) return { best: null, text: '', lines: [], body: 0, endY: 0 };
+    const sizeOf = it => Math.abs(it.transform[3] || it.height || 0);
+    const lines = [];
+    real.forEach(it => {
+        const y = it.transform[5];
+        let line = lines.find(l => Math.abs(l.y - y) <= 2.5);
+        if (!line) { line = { y, parts: [], size: 0 }; lines.push(line); }
+        line.parts.push({ x: it.transform[4], str: it.str });
+        line.size = Math.max(line.size, sizeOf(it));
+    });
+    lines.forEach(l => { l.text = l.parts.sort((a, b) => a.x - b.x).map(p => p.str).join(' ').replace(/\s+/g, ' ').trim(); });
+    // Body text is the size that carries the most characters (a median over a sparse title page would
+    // wrongly treat the title itself as body text).
+    const weight = new Map();
+    lines.forEach(l => { const k = Math.round(l.size * 2) / 2; weight.set(k, (weight.get(k) || 0) + l.text.length); });
+    const body = [...weight.entries()].sort((a, b) => b[1] - a[1])[0][0] || 0;
+    lines.sort((a, b) => b.y - a.y);
+    lines.sort((a, b) => b.y - a.y);
+    const blocks = [];
+    lines.forEach(l => {
+        if (!l.text || l.size < body * 1.12) return;
+        const last = blocks[blocks.length - 1];
+        if (last && Math.abs(last.size - l.size) <= 0.7 && last.lastY - l.y < l.size * 2.4) { last.lines.push(l.text); last.lastY = l.y; }
+        else blocks.push({ size: l.size, lines: [l.text], lastY: l.y, top: l.y });
+    });
+    const usable = blocks
+        .map(b => ({ ...b, text: b.lines.join(' ').replace(/\s+/g, ' ').trim() }))
+        .filter(b => {
+            const words = b.text.split(/\s+/).length;
+            if (words < 2 || words > 40 || /^[\d\W]+$/.test(b.text)) return false;
+            if (PDF_BANNER.test(b.text)) return false;
+            if (words <= 8 && PDF_INSTITUTION.test(b.text)) return false;
+            return true;
+        });
+    const best = [...usable].sort((a, b) => b.size - a.size || b.top - a.top)[0];
+    const result = { best: best || null, text: '', lines, body, endY: 0 };
+    if (!best) return result;
+    // Titles are often set in two tiers ("Covering the Last Mile" large, its subtitle smaller): join the
+    // smaller blocks that follow directly below, unless they look like authors, dates or institutions.
+    let text = best.text;
+    let last = best;
+    let endY = best.lastY;
+    const below = usable.filter(b => b.top < best.top).sort((a, b) => b.top - a.top);
+    for (const b of below.slice(0, 4)) {
+        const gap = last.lastY - b.top;
+        if (b.size < best.size * 0.45 || b.size > last.size + 0.7 || gap > best.size * 3.2) break;
+        if (pdfLooksLikeNames(b.text) || PDF_INSTITUTION.test(b.text) || /@|\b(?:19|20)\d{2}\b/.test(b.text)) break;
+        if ((text + ' ' + b.text).split(/\s+/).length > 45) break;
+        text += (/[:?!.]$/.test(text) ? ' ' : ': ') + b.text;
+        last = b;
+        endY = b.lastY;
     }
+    result.text = text;
+    result.endY = endY;
+    return result;
+}
+
+const PDF_CREDENTIALS = /,?\s*\b(?:Ph\.?\s?D\.?|M\.?D\.?|MSc|MS|MA|MPH|MBA|MEd|EdD|DBA|DrPH|RN|MDE|MAEd|MPA|BSc|BA|JD|LLM|CPA|Dr|Prof|Engr|Atty)\b\.?(?:\s*\([^)]*\))?/g;
+const PDF_NAME_STOP = /\b(University|College|Department|Institute|Foundation|Center|Centre|Report|Study|Program|Programme|Policy|Project|Review|Series|Paper|Papers|Council|Office|Ministry|Philippines|Region|Education|Development|Governance|Health|Research|Summary|Analysis|Association|Commission|Government|Authority|Partnership|Priority|Area)\b/;
+const PDF_NAME_PARTICLES = new Set(['dela', 'de', 'del', 'della', 'van', 'von', 'der', 'den', 'da', 'di', 'la', 'le', 'bin', 'al', 'san', 'santa', 'ten', 'ter']);
+
+// One personal name such as "Jose Jowel P. Canuday" or "Luisa Cecilia G. dela Cruz".
+function pdfParsePersonName(raw) {
+    const tokens = raw.trim().replace(/\s+/g, ' ').split(' ');
+    if (tokens.length < 2 || tokens.length > 6) return null;
+    const isWord = tok => /^[A-Z][\p{L}'\u2019]*(?:-[A-Z][\p{L}'\u2019]*)*$/u.test(tok) && /\p{Ll}/u.test(tok);
+    const isInitial = tok => /^[A-Z]\.?$/.test(tok) || /^[A-Z]\.[A-Z]\.?$/.test(tok);
+    let i = tokens.length - 1;
+    if (!isWord(tokens[i])) return null;
+    const family = [tokens[i]];
+    while (i > 1 && PDF_NAME_PARTICLES.has(tokens[i - 1].toLowerCase())) { family.unshift(tokens[i - 1]); i--; }
+    const given = tokens.slice(0, i);
+    if (!given.length || !given.every(tok => isWord(tok) || isInitial(tok))) return null;
+    const initials = given.map(g => g.replace(/\./g, '').charAt(0).toUpperCase() + '.').join(' ');
+    return { family: family.join(' '), initials, display: raw.trim() };
+}
+
+function pdfParseNameList(text) {
+    const cleaned = text.replace(PDF_CREDENTIALS, '').replace(/\s+/g, ' ').trim().replace(/^[,;\s]+|[,;\s]+$/g, '');
+    if (!cleaned || PDF_NAME_STOP.test(cleaned) || cleaned.length > 220) return null;
+    const parts = cleaned.split(/\s*(?:,|;|&|\band\b)\s*/).filter(Boolean);
+    if (!parts.length || parts.length > 25) return null;
+    const people = parts.map(pdfParsePersonName);
+    return people.every(Boolean) ? people : null;
+}
+
+function pdfLooksLikeNames(text) {
+    return !!pdfParseNameList(text);
+}
+
+// Looks for the author line(s) directly under the title; returns "Family, I. I., Family, I." or ''.
+function pdfGuessAuthors(titleInfo) {
+    if (!titleInfo || !titleInfo.best) return '';
+    const candidates = titleInfo.lines.filter(l => l.y < titleInfo.endY - 1 && titleInfo.endY - l.y < 260 && l.size <= titleInfo.body * 1.35);
+    const people = [];
+    let seen = false;
+    for (const l of candidates) {
+        const found = pdfParseNameList(l.text.replace(/,\s*$/, ''));
+        // Author lists wrap, so a line that ends in a comma is joined with the next one.
+        if (found) { people.push(...found); seen = true; continue; }
+        const joined = pdfParseNameList(l.text.replace(/,\s*$/, ''));
+        if (!joined && seen) break;
+    }
+    return people.map(p => `${p.family}, ${p.initials}`).join(', ');
+}
+
+// Words that are capitalised in the middle of sentences elsewhere in the document are proper nouns.
+function pdfProperNouns(titleText, bodyText) {
+    const found = [];
+    (titleText.match(/[A-Z][\p{L}'\u2019\-]{3,}/gu) || []).forEach(w => {
+        const re = new RegExp(`[a-z,;\\)]\\s+${w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`);
+        if (re.test(bodyText)) found.push(w);
+    });
+    return found;
+}
+
+async function readPdfDocument(arrayBuffer) {
+    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    const metadata = await pdf.getMetadata().catch(() => ({}));
+    const info = (metadata && metadata.info) || {};
+    let firstPage = '', later = '', titleGuess = '', titleBlocks = null;
+    const pages = Math.min(pdf.numPages, 3);
+    for (let i = 1; i <= pages; i++) {
+        const page = await pdf.getPage(i);
+        const content = await page.getTextContent();
+        const pageText = content.items.map(item => item.str).join(' ');
+        if (i === 1) {
+            firstPage = pageText;
+            titleBlocks = pdfTitleCandidates(content.items);
+            titleGuess = (titleBlocks.text || '').slice(0, 260);
+        }
+        else later += ' ' + pageText;
+    }
+    return { info, firstPage, later, titleGuess, titleBlocks, numPages: pdf.numPages };
+}
+
+function pdfPlausibleYear(n) {
+    const y = parseInt(n, 10);
+    return y >= 1900 && y <= new Date().getFullYear() + 1;
+}
+
+function pdfGuessYear(info, firstPage) {
+    // 1. A year with a publication label ("Published", "©", "Copyright") on the first page.
+    const labelled = firstPage.match(new RegExp(`(?:©|\\(c\\)|copyright|published|issued|first published|revised|updated)[^0-9]{0,40}(?:(?:${MONTHS_RE})\\s+(?:\\d{1,2},?\\s+)?)?((?:19|20)\\d{2})`, 'i'));
+    if (labelled && pdfPlausibleYear(labelled[1])) return { year: labelled[1], found: true };
+    // 2. The file's creation date, which is the date it was produced.
+    for (const key of ['CreationDate', 'ModDate']) {
+        const m = info[key] && String(info[key]).match(/D:(\d{4})/);
+        if (m && pdfPlausibleYear(m[1])) return { year: m[1], found: false };
+    }
+    // 3. A "Month Year" date or any year on the first page. Reference lists on later pages are ignored.
+    const dated = firstPage.match(new RegExp(`(?:${MONTHS_RE})\\s+(?:\\d{1,2},?\\s+)?((?:19|20)\\d{2})`));
+    if (dated && pdfPlausibleYear(dated[1])) return { year: dated[1], found: false };
+    const any = firstPage.match(/\b((?:19|20)\d{2})\b/);
+    return any && pdfPlausibleYear(any[1]) ? { year: any[1], found: false } : { year: '', found: false };
+}
+
+// Fills the form from what the PDF itself tells us (no DOI available). Returns the status to show.
+function populateFromPdfHeuristics(doc, label, sourceUrl) {
+    const { info, firstPage, later, titleGuess, titleBlocks } = doc;
+    const filenameTitle = label.replace(/\.pdf$/i, '').replace(/[-_+]+/g, ' ').trim();
+    // The PDF's Title property is only trusted when its words really appear on page 1 and it is not a banner.
+    const infoTitle = info.Title && info.Title.trim() && !PDF_BAD_TITLE.test(info.Title.trim()) && !PDF_BANNER.test(info.Title.trim()) ? info.Title.trim() : '';
+    const infoTitleOk = infoTitle && (!firstPage.trim() || pdfWordCoverage(infoTitle, firstPage) >= 0.6);
+    let titleFrom = 'guess';
+    let title = '';
+    if (infoTitleOk && firstPage.trim()) { title = infoTitle; titleFrom = 'found'; }
+    else if (titleGuess && !PDF_BAD_TITLE.test(titleGuess)) { title = titleGuess; titleFrom = 'found'; }
+    else if (infoTitleOk) { title = infoTitle; titleFrom = 'guess'; }
+    else {
+        const line = firstPage.split(/\s{2,}|\n/).map(l => l.trim()).find(l => l.length > 12 && !PDF_BANNER.test(l) && !/^(volume|issue|page|\d)/i.test(l));
+        title = line ? line.slice(0, 150) : filenameTitle;
+    }
+    // A long title block that merely starts with the verified metadata title is the full title with subtitle.
+    if (titleFrom === 'found' && infoTitleOk && titleGuess && titleGuess.toLowerCase().startsWith(infoTitle.toLowerCase()) && titleGuess.length > infoTitle.length) title = titleGuess;
+    if (title === title.toUpperCase() && /[A-Z]{4}/.test(title)) title = title.toLowerCase();
+
+    let host = null;
+    try { host = sourceUrl ? new URL(sourceUrl).hostname : null; } catch (e) { host = null; }
+    const orgName = host && host.includes('.') ? (knownOrganizationName(host) || (isInstitutionalHost(host) ? mapDomainToSiteName(host) : '')) : '';
+    const siteName = host && host.includes('.') ? mapDomainToSiteName(host) : '';
+    const infoAuthor = info.Author && info.Author.trim() && !PDF_BAD_AUTHOR.test(info.Author.trim()) && info.Author.trim().length < 120 ? info.Author.trim() : '';
+    const pageAuthors = infoAuthor ? '' : pdfGuessAuthors(titleBlocks);
+    const author = infoAuthor || pageAuthors || orgName;
+    const authorFrom = infoAuthor ? 'found' : (pageAuthors ? 'found' : (orgName ? 'guess' : 'missing'));
+    const dateGuess = pdfGuessYear(info, firstPage);
 
     setCiteTypeFromSource('report');
-    document.getElementById('cite-title').value = toSentenceCase(title);
+    const nouns = pdfProperNouns(title, `${firstPage} ${later}`.replace(title, ' '));
+    document.getElementById('cite-title').value = toSentenceCase(title, [orgName, siteName, ...nouns].filter(Boolean));
     document.getElementById('cite-authors').value = author;
-    document.getElementById('cite-year').value = year;
-    document.getElementById('cite-source').value = info.Producer || info.Creator || '';
-    document.getElementById('cite-doi-url').value = '';
-
+    document.getElementById('cite-year').value = dateGuess.year;
+    if (document.getElementById('cite-monthday')) document.getElementById('cite-monthday').value = '';
+    const publisher = (orgName && author.toLowerCase() === orgName.toLowerCase()) ? '' : (orgName || siteName || '');
+    document.getElementById('cite-source').value = publisher;
+    document.getElementById('cite-doi-url').value = sourceUrl ? cleanUrlForCitation(new URL(sourceUrl)) : '';
+    clearFieldProvenance();
     updateCitationPreview();
-    setCitationStatus('warning', 'PDF Analyzed (No DOI)', 'Extracted metadata from PDF document properties. Please review and refine the title and author names.');
-    showToast('Metadata extracted from PDF.');
+    applyFieldProvenance({
+        'cite-title': titleFrom,
+        'cite-authors': authorFrom,
+        'cite-year': dateGuess.year ? (dateGuess.found ? 'found' : 'guess') : 'missing',
+        'cite-source': publisher ? 'guess' : 'missing',
+        'cite-doi-url': sourceUrl ? 'found' : 'missing'
+    });
+    const gaps = [];
+    if (!author) gaps.push('author');
+    if (!dateGuess.year) gaps.push('date');
+    return {
+        state: 'warning',
+        title: sourceUrl ? 'PDF read from the link' : 'PDF analyzed (no DOI found)',
+        desc: `Title, author and date were taken from the PDF itself${gaps.length ? `; no ${gaps.join(' or ')} was found` : ''}. Check the amber and red fields, which are guesses or missing.`
+    };
 }
+
+// Reads a PDF (from a file or downloaded from a link) and fills the form. Returns { state, title, desc }.
+async function processPdfData(arrayBuffer, label, sourceUrl) {
+    if (typeof pdfjsLib === 'undefined') {
+        return { state: 'error', title: 'PDF parser unavailable', desc: 'PDF.js did not load. Check your network connection and reload the page.' };
+    }
+    let doc;
+    try {
+        doc = await readPdfDocument(arrayBuffer);
+    } catch (err) {
+        console.error('PDF parsing error:', err);
+        return { state: 'error', title: 'Could not read PDF', desc: 'The PDF is damaged, password-protected, or only contains scanned images without text.' };
+    }
+    const infoText = Object.values(doc.info || {}).filter(v => typeof v === 'string').join(' ');
+    const candidates = [
+        { doi: extractDoiFromText(doc.firstPage), trusted: true },
+        { doi: extractDoiFromText(infoText), trusted: true },
+        { doi: extractDoiFromText(doc.later), trusted: false }
+    ].filter(c => c.doi);
+    for (const c of candidates) {
+        setCitationStatus('loading', 'DOI found in the PDF', `Found DOI ${c.doi}. Asking Crossref for the verified record...`);
+        // A DOI from the later pages is often just a cited work, so it must match the document's own title.
+        const resolved = await resolveDoiMetadata(c.doi);
+        if (!resolved) continue;
+        // The paper's own title appears on its first page; a cited work's title does not.
+        if (doc.firstPage.trim().length > 200) {
+            const got = document.getElementById('cite-title').value;
+            if (got && pdfWordCoverage(got, doc.firstPage) < 0.5) {
+                clearCitationFieldsQuiet();
+                continue;
+            }
+        }
+        return { state: 'success', title: 'Verified via Crossref', desc: `Complete metadata from DOI ${c.doi} found in "${label}".` };
+    }
+    return populateFromPdfHeuristics(doc, label, sourceUrl);
+}
+
+function clearCitationFieldsQuiet() {
+    ['cite-title', 'cite-authors', 'cite-year', 'cite-monthday', 'cite-source', 'cite-volume', 'cite-issue', 'cite-pages', 'cite-doi-url'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+    resetExtraCitationFields();
+    clearFieldProvenance();
+}
+
+async function processPdfFiles(fileList) {
+    const files = [...fileList];
+    const pdfs = files.filter(f => /\.pdf$/i.test(f.name) || f.type === 'application/pdf');
+    const skipped = files.length - pdfs.length;
+    if (!pdfs.length) {
+        setCitationStatus('error', 'Unsupported file', 'Please upload PDF documents (.pdf).');
+        return;
+    }
+    const results = [];
+    for (let i = 0; i < pdfs.length; i++) {
+        const file = pdfs[i];
+        setCitationStatus('loading', pdfs.length > 1 ? `Reading PDF ${i + 1} of ${pdfs.length}` : 'Analyzing PDF...', `Reading ${file.name} and scanning for bibliographic data...`);
+        await nextFrame(20);
+        activeBatchId = null;
+        clearCitationFieldsQuiet();
+        let status;
+        try {
+            if (file.size > PDF_MAX_BYTES) status = { state: 'error', title: 'PDF too large', desc: 'Files over 25 MB are not read in the browser.' };
+            else status = await processPdfData(await file.arrayBuffer(), file.name, '');
+        } catch (e) {
+            status = { state: 'error', title: 'Could not read PDF', desc: e.message };
+        }
+        results.push(status);
+        recordBatchEntry(file.name, status);
+    }
+    const ok = results.filter(r => r.state !== 'error').length;
+    if (pdfs.length === 1) {
+        setCitationStatus(results[0].state, results[0].title, results[0].desc);
+        if (results[0].state !== 'error') showToast('Citation generated from PDF!');
+    } else {
+        const verified = results.filter(r => r.state === 'success').length;
+        setCitationStatus(ok === pdfs.length ? 'success' : 'warning', `Read ${ok} of ${pdfs.length} PDFs`,
+            `${verified} verified through a DOI, ${ok - verified} built from the PDF text and properties${skipped ? `; ${skipped} non-PDF file${skipped === 1 ? '' : 's'} skipped` : ''}. Review each entry below, then add them all to the bibliography.`);
+        showToast(`Generated ${ok} citation${ok === 1 ? '' : 's'}.`);
+    }
+}
+
+// A link to a PDF: download it, then read it the same way as an uploaded file.
+async function resolvePdfUrl(urlStr) {
+    let parsed;
+    try {
+        parsed = new URL(/^https?:\/\//i.test(urlStr) ? urlStr : `https://${urlStr}`);
+    } catch (e) {
+        return false;
+    }
+    setCitationStatus('loading', 'Downloading the PDF...', `Fetching ${parsed.hostname} so its title, authors and DOI can be read.`);
+    let bytes;
+    try {
+        bytes = await fetchPdfBytes(parsed.href);
+    } catch (e) {
+        return false;
+    }
+    const status = await processPdfData(bytes, parsed.pathname.split('/').pop() || parsed.hostname, parsed.href);
+    setCitationStatus(status.state, status.title, status.desc);
+    if (status.state !== 'error') showToast('Citation generated from the PDF link!');
+    return status.state !== 'error';
+}
+
+const LINK_TOKEN = /^(?:https?:\/\/\S+|www\.\S+|(?:doi:\s*)?10\.\d{4,9}\/\S+)$/i;
 
 async function handleResolveUrl() {
     const input = document.getElementById('citation-url-input').value.trim();
@@ -229,12 +515,30 @@ async function handleResolveUrl() {
         return;
     }
 
-    setCitationStatus('loading', 'Resolving Reference...', 'Searching academic registries and web metadata...');
+    const tokens = input.split(/[\s,;]+/).filter(Boolean);
+    const isBatch = tokens.length > 1 && tokens.every(tok => LINK_TOKEN.test(tok));
     const btn = document.getElementById('btn-resolve-url');
     if (btn) btn.disabled = true;
+    activeBatchId = null;
 
     try {
-        await resolveWebOrDoi(input);
+        if (!isBatch) {
+            setCitationStatus('loading', 'Resolving Reference...', 'Searching academic registries and web metadata...');
+            await resolveWebOrDoi(input);
+            return;
+        }
+        let ok = 0;
+        for (let i = 0; i < tokens.length; i++) {
+            setCitationStatus('loading', `Resolving link ${i + 1} of ${tokens.length}`, tokens[i]);
+            await nextFrame(20);
+            activeBatchId = null;
+            clearCitationFieldsQuiet();
+            try { await resolveWebOrDoi(tokens[i]); } catch (e) { setCitationStatus('error', 'Could not resolve', e.message); }
+            if (lastCitationStatus.state !== 'error') ok++;
+            recordBatchEntry(tokens[i], lastCitationStatus);
+        }
+        setCitationStatus(ok === tokens.length ? 'success' : 'warning', `Resolved ${ok} of ${tokens.length} links`, 'Review each entry in the list below, then add them all to the bibliography.');
+        showToast(`Generated ${ok} citation${ok === 1 ? '' : 's'}.`);
     } finally {
         if (btn) btn.disabled = false;
     }
@@ -296,8 +600,15 @@ async function resolveWebOrDoi(input) {
         }
     }
 
-    // 4. General webpage via URL parsing & metadata fetch attempt
+    // 4. A link straight to a PDF: read the PDF itself rather than the site around it.
+    if (looksLikePdfUrl(input) && await resolvePdfUrl(input)) return;
+
+    // 5. General webpage via URL parsing & metadata fetch attempt
+    const pdfFallback = looksLikePdfUrl(input);
     await resolveGeneralWebUrl(input);
+    if (pdfFallback && lastCitationStatus.state !== 'error') {
+        setCitationStatus('warning', 'PDF link: built from the address only', 'The PDF could not be downloaded here (the site blocks outside access or is too large), so its contents were not read. The title, author and date come from the link. Download the PDF and use "Upload PDF" for a complete citation.');
+    }
 }
 
 async function resolveDoiMetadata(doi) {
@@ -910,6 +1221,7 @@ function updateCitationPreview() {
     const narrativeEl = document.getElementById('prev-citation-narrative');
     if (parentheticalEl) parentheticalEl.innerText = inText.parenthetical;
     if (narrativeEl) narrativeEl.innerText = inText.narrative;
+    syncActiveBatchEntry();
 }
 
 function copyInTextCitation(type) {
@@ -932,23 +1244,161 @@ function copyInTextCitation(type) {
     });
 }
 
+// ── Batch list (several PDFs or links at once) ────────────────────────
+let citationBatch = [];
+let activeBatchId = null;
+let batchSeq = 0;
+const CITE_FORM_IDS = ['cite-type', 'cite-title', 'cite-authors', 'cite-year', 'cite-monthday', 'cite-source', 'cite-volume', 'cite-issue', 'cite-pages', 'cite-doi-url', ...EXTRA_CITE_FIELDS, 'cite-retrieved-date'];
+
+function captureCitationForm() {
+    const snap = {};
+    CITE_FORM_IDS.forEach(id => { const el = document.getElementById(id); if (el) snap[id] = el.value; });
+    const on = document.getElementById('cite-retrieved-on');
+    snap.retrievedOn = !!(on && on.checked);
+    return snap;
+}
+
+function restoreCitationForm(snap) {
+    document.getElementById('cite-type').value = snap['cite-type'] || 'report';
+    handleCiteTypeChange();
+    CITE_FORM_IDS.forEach(id => { const el = document.getElementById(id); if (el && id !== 'cite-type' && id in snap) el.value = snap[id]; });
+    const on = document.getElementById('cite-retrieved-on');
+    if (on) on.checked = !!snap.retrievedOn;
+    clearFieldProvenance();
+    updateCitationPreview();
+}
+
+function recordBatchEntry(label, status) {
+    const id = ++batchSeq;
+    citationBatch.push({ id, label, state: status.state || 'warning', statusTitle: status.title || '', snap: captureCitationForm(), marked: currentCitationMarked, plain: currentCitationPlain });
+    activeBatchId = id;
+    renderCitationBatch();
+}
+
+function syncActiveBatchEntry() {
+    if (activeBatchId === null) return;
+    const entry = citationBatch.find(e => e.id === activeBatchId);
+    if (!entry) return;
+    entry.snap = captureCitationForm();
+    entry.marked = currentCitationMarked;
+    entry.plain = currentCitationPlain;
+    const el = document.querySelector(`[data-batch-text="${entry.id}"]`);
+    if (el) el.innerText = entry.plain || '(empty citation)';
+}
+
+function renderCitationBatch() {
+    const host = document.getElementById('citation-batch');
+    if (!host) return;
+    if (!citationBatch.length) { host.classList.add('hidden'); host.innerHTML = ''; return; }
+    host.classList.remove('hidden');
+    const dot = s => s === 'success' ? 'bg-emerald-500' : s === 'error' ? 'bg-rose-500' : 'bg-amber-500';
+    host.innerHTML = `
+        <div class="flex flex-wrap items-center justify-between gap-2">
+            <h4 class="text-xs font-extrabold uppercase tracking-widest text-slate-500">Your citations (${citationBatch.length})</h4>
+            <div class="flex gap-2">
+                <button type="button" data-batch-act="addall" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold px-3 py-2 rounded-lg">Add all to bibliography</button>
+                <button type="button" data-batch-act="clear" class="text-xs font-semibold text-slate-600 hover:bg-slate-100 border border-slate-200 px-3 py-2 rounded-lg">Clear list</button>
+            </div>
+        </div>
+        <ul class="space-y-2">${citationBatch.map(e => `
+            <li class="rounded-xl border ${e.id === activeBatchId ? 'border-indigo-400 bg-indigo-50/40' : 'border-slate-200 bg-white'} p-3" data-batch-id="${e.id}">
+                <div class="flex items-start gap-2">
+                    <span class="mt-1.5 w-2 h-2 rounded-full shrink-0 ${dot(e.state)}" title="${escapeHtml(e.statusTitle)}"></span>
+                    <div class="min-w-0 flex-1">
+                        <p class="text-[11px] font-semibold text-slate-500 truncate">${escapeHtml(e.label)}</p>
+                        <p class="text-xs text-slate-800 break-words" data-batch-text="${e.id}">${escapeHtml(e.plain || '(no citation could be built)')}</p>
+                    </div>
+                </div>
+                <div class="flex gap-2 mt-2 pl-4">
+                    <button type="button" data-batch-act="edit" class="text-[11px] font-semibold text-indigo-700 hover:underline">Edit</button>
+                    <button type="button" data-batch-act="add" class="text-[11px] font-semibold text-indigo-700 hover:underline">Add to bibliography</button>
+                    <button type="button" data-batch-act="remove" class="text-[11px] font-semibold text-rose-600 hover:underline">Remove</button>
+                </div>
+            </li>`).join('')}
+        </ul>`;
+}
+
+function initCitationBatch() {
+    const host = document.getElementById('citation-batch');
+    if (!host) return;
+    host.addEventListener('click', ev => {
+        const btn = ev.target.closest('[data-batch-act]');
+        if (!btn) return;
+        const row = btn.closest('[data-batch-id]');
+        const entry = row && citationBatch.find(e => e.id === +row.dataset.batchId);
+        const act = btn.dataset.batchAct;
+        if (act === 'clear') { citationBatch = []; activeBatchId = null; renderCitationBatch(); return; }
+        if (act === 'addall') {
+            addEntriesToBibliography(citationBatch.filter(e => e.state !== 'error' && (e.marked || e.plain)).map(e => e.marked || e.plain));
+            return;
+        }
+        if (!entry) return;
+        if (act === 'remove') {
+            citationBatch = citationBatch.filter(e => e.id !== entry.id);
+            if (activeBatchId === entry.id) activeBatchId = null;
+            renderCitationBatch();
+        } else if (act === 'edit') {
+            activeBatchId = entry.id;
+            restoreCitationForm(entry.snap);
+            renderCitationBatch();
+            setCitationStatus(entry.state === 'error' ? 'error' : 'warning', `Editing: ${entry.label}`, 'Changes you make in the form below update this entry.');
+        } else if (act === 'add') {
+            addEntriesToBibliography([entry.marked || entry.plain]);
+        }
+    });
+}
+
+// Adds references to the bibliography text, shows the result right away, and says how many are there now.
+function addEntriesToBibliography(entries) {
+    const list = entries.filter(Boolean);
+    if (!list.length) {
+        showToast('Generate or edit a citation first.');
+        return;
+    }
+    const bibInput = document.getElementById('bibliography-input');
+    let existing = bibInput.value.trim();
+    // The built-in sample is a placeholder, not the user's work, so replace it rather than mix with it.
+    if (bibInputIsSample || existing === BIB_SAMPLE_TEXT.trim()) existing = '';
+    const have = new Set(parseBibliographyEntries(existing).map(e => stripItalicMarkers(e).replace(/\s+/g, ' ').toLowerCase()));
+    const fresh = [];
+    let duplicates = 0;
+    list.forEach(e => {
+        const key = stripItalicMarkers(e).replace(/\s+/g, ' ').trim().toLowerCase();
+        if (have.has(key)) { duplicates++; return; }
+        have.add(key);
+        fresh.push(e);
+    });
+    bibInput.value = [existing, ...fresh].filter(Boolean).join('\n\n');
+    bibInputIsSample = false;
+    const total = formatBibliography({ quiet: true });
+
+    const msg = fresh.length
+        ? `Added ${fresh.length} reference${fresh.length === 1 ? '' : 's'} to the bibliography (${total} in total)${duplicates ? `; ${duplicates} already there` : ''}.`
+        : 'That reference is already in the bibliography.';
+    showToast(msg);
+    const note = document.getElementById('citation-added-note');
+    if (note) {
+        note.classList.remove('hidden');
+        note.querySelector('[data-note-text]').innerText = `${msg} `;
+    }
+    const batchNote = document.getElementById('citation-batch-note');
+    if (batchNote) {
+        batchNote.classList.remove('hidden');
+        batchNote.querySelector('[data-note-text]').innerText = `${msg} `;
+    }
+}
+
 function addCitationToBibliography() {
     if (!currentCitationPlain) {
         showToast('Generate or edit a citation first.');
         return;
     }
-
-    const bibInput = document.getElementById('bibliography-input');
-    const currentText = bibInput.value.trim();
-    const entry = currentCitationMarked || currentCitationPlain;
-    bibInput.value = currentText ? `${currentText}\n\n${entry}` : entry;
-    bibInputIsSample = false;
-    saveBibliographyDraft();
-
-    showToast('Citation added to Bibliography Formatter!');
+    addEntriesToBibliography([currentCitationMarked || currentCitationPlain]);
 }
 
 function resetCitationForm() {
+    activeBatchId = null;
+    renderCitationBatch();
     document.getElementById('cite-title').value = '';
     document.getElementById('cite-authors').value = '';
     document.getElementById('cite-year').value = '';
@@ -969,6 +1419,7 @@ function resetCitationForm() {
 function loadSampleCitation(key, showToastFlag = true) {
     const s = sampleCitations[key];
     if (!s) return;
+    activeBatchId = null;
     clearFieldProvenance();
 
     setCiteTypeFromSource(s.type);

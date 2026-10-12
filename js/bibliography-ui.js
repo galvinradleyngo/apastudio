@@ -244,7 +244,8 @@ function handleReferenceFileImport(event) {
 // so a second click on Format (or editing one line) keeps the italics the rebuild worked out.
 let bibMarkedLookup = new Map();
 
-function formatBibliography() {
+function formatBibliography(options) {
+    const quiet = !!(options && options.quiet);
     const rawText = document.getElementById('bibliography-input').value;
     const parsedEntries = parseBibliographyEntries(rawText).map(entry => bibMarkedLookup.get(entry) || entry);
     const rebuildToggle = document.getElementById('rebuild-toggle');
@@ -259,8 +260,8 @@ function formatBibliography() {
     renderBibliographyIssues(sortedEntries);
 
     if (!sortedEntries.length) {
-        showToast('No references found to format.');
-        return;
+        if (!quiet) showToast('No references found to format.');
+        return 0;
     }
 
     const autoFixedCount = parsedEntries.reduce((count, original, index) => {
@@ -268,8 +269,10 @@ function formatBibliography() {
     }, 0);
 
     bibMarkedLookup = new Map(sortedEntries.map(entry => [stripItalicMarkers(entry), entry]).filter(([clean, marked]) => clean !== marked));
-    document.getElementById('bibliography-input').value = sortedEntries.map(stripItalicMarkers).join('\n');
+    // A blank line between entries keeps author-less entries (title first) from merging when the text is read again.
+    document.getElementById('bibliography-input').value = sortedEntries.map(stripItalicMarkers).join('\n\n');
     saveBibliographyDraft();
 
-    showToast(`Formatted ${sortedEntries.length} reference${sortedEntries.length === 1 ? '' : 's'} in APA 7 style. Auto-fixed ${autoFixedCount}.`);
+    if (!quiet) showToast(`Formatted ${sortedEntries.length} reference${sortedEntries.length === 1 ? '' : 's'} in APA 7 style. Auto-fixed ${autoFixedCount}.`);
+    return sortedEntries.length;
 }

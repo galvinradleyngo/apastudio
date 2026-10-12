@@ -39,6 +39,12 @@ A modern, browser-based academic formatting workspace for researchers, educators
 ## Credits
 This app was co-developed with Claude (Anthropic) and tested by humans. The footer on every screen says so.
 
+## Citation Generator updates
+- **Several PDFs at once:** select or drop multiple files; each becomes an entry in a list where you can edit, remove or add it to the bibliography, or add them all.
+- **Several links at once:** paste multiple links or DOIs separated by spaces or new lines.
+- **Links to PDFs:** the PDF is downloaded (through your Worker) and read like an uploaded file: DOI lookup first, then the document's own title, author and date. Redeploy `worker/metadata-proxy.js` for this; without it the citation falls back to the address alone and says so.
+- **Add to bibliography** now updates the bibliography immediately, replaces the built-in sample, skips duplicates and tells you the total.
+
 ## Privacy
 Everything runs in the browser. Uploaded papers, tables, bibliographies and contents pages are never sent to a server. The one exception is the Citation Generator, which sends the DOI or link you enter to public services (Crossref, DataCite, and the optional metadata Worker) to look it up. The saved bibliography draft lives in this browser's localStorage only.
 

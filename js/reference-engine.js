@@ -365,7 +365,8 @@ function normalizeYearAndInitialsFormatting(reference) {
     fixed = fixed.replace(/\s*&\s*/g, ' & ');
 
     fixed = fixed.replace(/\(\s*(\d{4}|n\.d\.)\s*\)/ig, '($1)');
-    fixed = fixed.replace(/(\((?:\d{4}|n\.d\.)[a-z]?(?:-[a-z])?(?:,[^)]*)?\))(?!\.)/ig, '$1.');
+    // Only the date block gets a period. A 4-digit issue number such as 585(7825) is not a year.
+    fixed = fixed.replace(/(\((?:(?:1[5-9]|20)\d\d|n\.d\.)[a-z]?(?:-[a-z])?(?:,[^)]*)?\))(?!\.)/i, (m, block, offset) => (/[\w*]$/.test(fixed.slice(0, offset)) ? m : block + '.'));
 
     fixed = fixed.replace(/([A-Z])\s*\.\s*([A-Z])\s*\./g, '$1. $2.');
     fixed = fixed.replace(/([A-Z])\s+\./g, '$1.');
@@ -741,7 +742,28 @@ function titleSimilarity(a, b) {
     return shared / Math.max(A.size, B.size);
 }
 
-const SENTENCE_CASE_PROPER_NOUNS = ['January', 'February', 'March', 'April', 'June', 'July', 'August', 'September', 'October', 'November', 'December', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday', 'English', 'Spanish', 'French', 'German', 'Chinese', 'Japanese', 'Filipino', 'American', 'European', 'Asian', 'African', 'Australian', 'Canadian', 'British', 'Africa', 'Asia', 'Europe', 'America', 'Australia', 'Canada', 'China', 'India', 'Japan', 'Philippines', 'Manila', 'Mexico', 'Brazil', 'Russia', 'France', 'Germany', 'Google', 'Facebook', 'Instagram', 'TikTok', 'YouTube', 'Twitter', 'Wikipedia', 'Internet', 'Zoom', 'Microsoft', 'Apple', 'Amazon', 'God', 'Christian', 'Catholic', 'Islam', 'Muslim', 'Buddhist', 'Jewish'];
+const SENTENCE_CASE_PROPER_NOUNS = [
+    // Calendar
+    'January', 'February', 'March', 'April', 'June', 'July', 'August', 'September', 'October', 'November', 'December', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday',
+    // Countries (one-word names; multi-word names are in SENTENCE_CASE_PHRASES)
+    'Afghanistan', 'Albania', 'Algeria', 'Andorra', 'Angola', 'Argentina', 'Armenia', 'Australia', 'Austria', 'Azerbaijan', 'Bahamas', 'Bahrain', 'Bangladesh', 'Barbados', 'Belarus', 'Belgium', 'Belize', 'Benin', 'Bhutan', 'Bolivia', 'Bosnia', 'Botswana', 'Brazil', 'Brunei', 'Bulgaria', 'Burkina', 'Burundi', 'Cambodia', 'Cameroon', 'Canada', 'Chad', 'Chile', 'China', 'Colombia', 'Comoros', 'Congo', 'Croatia', 'Cuba', 'Cyprus', 'Czechia', 'Denmark', 'Djibouti', 'Dominica', 'Ecuador', 'Egypt', 'Eritrea', 'Estonia', 'Eswatini', 'Ethiopia', 'Fiji', 'Finland', 'France', 'Gabon', 'Gambia', 'Georgia', 'Germany', 'Ghana', 'Greece', 'Grenada', 'Guatemala', 'Guinea', 'Guyana', 'Haiti', 'Honduras', 'Hungary', 'Iceland', 'India', 'Indonesia', 'Iran', 'Iraq', 'Ireland', 'Israel', 'Italy', 'Jamaica', 'Japan', 'Jordan', 'Kazakhstan', 'Kenya', 'Kiribati', 'Kosovo', 'Kuwait', 'Kyrgyzstan', 'Laos', 'Latvia', 'Lebanon', 'Lesotho', 'Liberia', 'Libya', 'Liechtenstein', 'Lithuania', 'Luxembourg', 'Madagascar', 'Malawi', 'Malaysia', 'Maldives', 'Mali', 'Malta', 'Mauritania', 'Mauritius', 'Mexico', 'Micronesia', 'Moldova', 'Monaco', 'Mongolia', 'Montenegro', 'Morocco', 'Mozambique', 'Myanmar', 'Namibia', 'Nauru', 'Nepal', 'Netherlands', 'Nicaragua', 'Niger', 'Nigeria', 'Norway', 'Oman', 'Pakistan', 'Palau', 'Palestine', 'Panama', 'Paraguay', 'Peru', 'Philippines', 'Poland', 'Portugal', 'Qatar', 'Romania', 'Russia', 'Rwanda', 'Samoa', 'Senegal', 'Serbia', 'Seychelles', 'Singapore', 'Slovakia', 'Slovenia', 'Somalia', 'Spain', 'Sudan', 'Suriname', 'Sweden', 'Switzerland', 'Syria', 'Taiwan', 'Tajikistan', 'Tanzania', 'Thailand', 'Togo', 'Tonga', 'Tunisia', 'Turkey', 'Turkmenistan', 'Tuvalu', 'Uganda', 'Ukraine', 'Uruguay', 'Uzbekistan', 'Vanuatu', 'Vatican', 'Venezuela', 'Vietnam', 'Yemen', 'Zambia', 'Zimbabwe', 'Scotland', 'Wales', 'England', 'Greenland', 'Macau', 'Timor-Leste',
+    // Regions, continents and places
+    'Africa', 'Asia', 'Europe', 'America', 'Americas', 'Oceania', 'Antarctica', 'Arctic', 'Caribbean', 'Pacific', 'Atlantic', 'Mediterranean', 'ASEAN', 'Mindanao', 'Luzon', 'Visayas', 'Palawan', 'Mindoro', 'Samar', 'Leyte', 'Bohol', 'Siquijor', 'Mindanao', 'Balkans', 'Scandinavia', 'Polynesia', 'Melanesia', 'Himalayas', 'Amazon', 'Sahara',
+    // Cities
+    'Manila', 'Quezon', 'Makati', 'Cebu', 'Davao', 'Baguio', 'Tokyo', 'Osaka', 'Kyoto', 'Beijing', 'Shanghai', 'Seoul', 'Bangkok', 'Jakarta', 'Hanoi', 'Delhi', 'Mumbai', 'Kolkata', 'Dhaka', 'Karachi', 'Tehran', 'Baghdad', 'Cairo', 'Lagos', 'Nairobi', 'Johannesburg', 'London', 'Paris', 'Berlin', 'Madrid', 'Rome', 'Vienna', 'Moscow', 'Toronto', 'Chicago', 'Boston', 'Sydney', 'Melbourne', 'Auckland', 'Washington', 'California', 'Texas', 'Florida', 'Hawaii', 'Ontario', 'Quebec',
+    // Nationalities and languages
+    'English', 'Spanish', 'French', 'German', 'Chinese', 'Japanese', 'Korean', 'Filipino', 'Philippine', 'Tagalog', 'Cebuano', 'Ilocano', 'Hiligaynon', 'Waray', 'Bikol', 'Kapampangan', 'Mandarin', 'Cantonese', 'Hindi', 'Urdu', 'Bengali', 'Arabic', 'Hebrew', 'Persian', 'Turkish', 'Swahili', 'Italian', 'Portuguese', 'Dutch', 'Swedish', 'Norwegian', 'Danish', 'Finnish', 'Polish', 'Russian', 'Ukrainian', 'Greek', 'Irish', 'Scottish', 'Welsh', 'Swiss', 'Austrian', 'Belgian', 'Czech', 'Hungarian', 'Romanian', 'American', 'European', 'Asian', 'African', 'Australian', 'Canadian', 'British', 'Indian', 'Pakistani', 'Bangladeshi', 'Nepali', 'Indonesian', 'Malaysian', 'Singaporean', 'Thai', 'Vietnamese', 'Cambodian', 'Burmese', 'Iranian', 'Iraqi', 'Israeli', 'Saudi', 'Egyptian', 'Nigerian', 'Kenyan', 'Ghanaian', 'Ethiopian', 'South', 'Mexican', 'Brazilian', 'Argentine', 'Argentinian', 'Chilean', 'Colombian', 'Peruvian', 'Cuban', 'Latino', 'Latina', 'Latinx', 'Hispanic', 'Indigenous', 'Aboriginal', 'Maori',
+    // Organizations, brands, religions
+    'Google', 'Facebook', 'Instagram', 'TikTok', 'YouTube', 'Twitter', 'Wikipedia', 'Internet', 'Zoom', 'Microsoft', 'Apple', 'Amazon', 'God', 'Christian', 'Christianity', 'Catholic', 'Islam', 'Islamic', 'Muslim', 'Buddhist', 'Buddhism', 'Hindu', 'Hinduism', 'Bangsamoro', 'Moro', 'Maranao', 'Tausug', 'Maguindanaon', 'Sulu', 'Basilan', 'Cotabato', 'Zamboanga', 'Lanao', 'Tawi-Tawi', 'Jewish', 'Judaism', 'Protestant', 'Bible', 'Quran'
+].filter(w => w !== 'South');
+
+const SENTENCE_CASE_PHRASES = [
+    'Bangsamoro Autonomous Region in Muslim Mindanao', 'Autonomous Region in Muslim Mindanao', 'Bangsamoro Autonomous Region', 'National Capital Region', 'Cordillera Administrative Region', 'Muslim Mindanao',
+    'United States', 'United States of America', 'United Kingdom', 'United Arab Emirates', 'United Nations', 'European Union', 'New Zealand', 'New York', 'New Delhi', 'New Jersey', 'New England',
+    'South Korea', 'North Korea', 'South Africa', 'South Sudan', 'Saudi Arabia', 'Sri Lanka', 'Hong Kong', 'Costa Rica', 'Puerto Rico', 'El Salvador', 'Papua New Guinea', 'Czech Republic', 'Dominican Republic', 'Central African Republic', 'Ivory Coast', 'Cape Verde', 'East Timor', 'Burkina Faso', 'Sierra Leone', 'Equatorial Guinea', 'Trinidad and Tobago', 'Antigua and Barbuda', 'Bosnia and Herzegovina', 'Solomon Islands', 'Marshall Islands', 'Cook Islands',
+    'Southeast Asia', 'South Asia', 'East Asia', 'Central Asia', 'Western Asia', 'Middle East', 'North America', 'South America', 'Latin America', 'Central America', 'Sub-Saharan Africa', 'North Africa', 'West Africa', 'East Africa', 'Eastern Europe', 'Western Europe', 'Pacific Islands', 'Asia Pacific', 'Asia-Pacific',
+    'Metro Manila', 'Quezon City', 'Cebu City', 'Davao City', 'Makati City', 'Mandaluyong City', 'Pasig City', 'Taguig City', 'Los Angeles', 'San Francisco', 'San Diego', 'Las Vegas', 'Kuala Lumpur', 'Ho Chi Minh City', 'Rio de Janeiro', 'Buenos Aires', 'Mexico City', 'Cape Town', 'Tel Aviv', 'Abu Dhabi', 'World Health Organization', 'World Bank', 'World War I', 'World War II', 'Southern Cross', 'Ateneo de Manila University', 'University of the Philippines'
+];
 
 function toSentenceCase(text, preserve) {
     if (!text) return '';
@@ -752,7 +774,14 @@ function toSentenceCase(text, preserve) {
         if (cleaned.length > 2 && /^[A-Z]/.test(cleaned)) keepWords.set(cleaned.toLowerCase(), cleaned);
     }));
     const str = text.trim();
-    const acronyms = new Set(['DNA', 'RNA', 'HIV', 'AIDS', 'COVID', 'COVID-19', 'AI', 'ML', 'USA', 'UK', 'EU', 'UN', 'WHO', 'CDC', 'NIH', 'APA', 'IEEE', 'ACM', 'MRI', 'FMRI', 'EEG', 'CT', 'PCR', 'IQ']);
+    // Multi-word proper nouns ("United States", "New Zealand") keep their capitals as a block.
+    const phraseRanges = [];
+    SENTENCE_CASE_PHRASES.forEach(phrase => {
+        const re = new RegExp(`(^|[^A-Za-z])(${phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s+')})(?![A-Za-z])`, 'gi');
+        let m;
+        while ((m = re.exec(str))) phraseRanges.push({ start: m.index + m[1].length, end: m.index + m[1].length + m[2].length, text: phrase });
+    });
+    const acronyms = new Set(['ASEAN', 'DNA', 'RNA', 'HIV', 'AIDS', 'COVID', 'COVID-19', 'AI', 'ML', 'USA', 'UK', 'EU', 'UN', 'WHO', 'CDC', 'NIH', 'APA', 'IEEE', 'ACM', 'MRI', 'FMRI', 'EEG', 'CT', 'PCR', 'IQ']);
 
     const words = str.split(/\s+/).filter(Boolean);
     if (words.length === 0) return '';
@@ -771,6 +800,13 @@ function toSentenceCase(text, preserve) {
     const shouldNormalizeCase = isAllUpper || isTitleCase;
 
     return str.replace(/([A-Za-z0-9'’\-]+)/g, (match, word, offset) => {
+        const inPhrase = phraseRanges.find(r => offset >= r.start && offset + word.length <= r.end);
+        if (inPhrase) {
+            // Rebuild the matching slice of the canonical phrase, word by word, whatever spacing the input had.
+            const index = str.slice(inPhrase.start, offset).split(/\s+/).length - 1;
+            const canon = inPhrase.text.split(' ')[index];
+            if (canon && canon.toLowerCase() === word.toLowerCase()) return canon;
+        }
         const cleanUpper = word.toUpperCase();
         if (acronyms.has(cleanUpper)) {
             return cleanUpper;
@@ -790,6 +826,10 @@ function toSentenceCase(text, preserve) {
 
         if (shouldNormalizeCase) {
             if (/[a-z]/.test(word) && /[A-Z]/.test(word.slice(1))) {
+                return word;
+            }
+            // A short all-caps word inside a mixed-case title is an acronym (BARMM, ECCD, NCR): keep it.
+            if (!isAllUpper && /^[A-Z]{2,6}$/.test(word) && !/^(AND|THE|FOR|OF|IN|ON|AT|TO|BY|OR|AN)$/.test(word)) {
                 return word;
             }
             return word.toLowerCase();

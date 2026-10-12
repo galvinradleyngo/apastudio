@@ -12,6 +12,7 @@ function init() {
     showHome();
     document.getElementById('paste-zone').addEventListener('paste', handlePasteInZone);
     initPdfDropzone();
+    initCitationBatch();
     const bibInputEl = document.getElementById('bibliography-input');
     const savedDraft = readBibliographyDraft();
     if (savedDraft && !bibInputEl.value.trim()) bibInputEl.value = savedDraft;

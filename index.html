@@ -699,15 +699,15 @@
                             <div id="citation-pdf-tab" class="hidden space-y-4">
                                 <div id="pdf-dropzone" onclick="document.getElementById('pdf-file-input').click()"
                                     class="border-2 border-dashed border-slate-300 hover:border-indigo-500 hover:bg-indigo-50/20 rounded-2xl p-5 flex flex-col items-center justify-center text-center cursor-pointer transition-all duration-200 group">
-                                    <input type="file" id="pdf-file-input" accept=".pdf" class="hidden" onchange="handlePdfFileInput(event)">
+                                    <input type="file" id="pdf-file-input" accept=".pdf,application/pdf" multiple class="hidden" onchange="handlePdfFileInput(event)">
                                     <div class="bg-indigo-50 group-hover:bg-indigo-100 text-indigo-600 p-2.5 rounded-xl mb-2 transition-colors">
                                         <i data-lucide="file-text" class="w-5 h-5"></i>
                                     </div>
                                     <p class="text-sm font-bold text-slate-800 group-hover:text-indigo-600 transition-colors">
-                                        Click to upload or drag & drop a PDF
+                                        Click to upload or drag &amp; drop one or more PDFs
                                     </p>
                                     <p class="text-xs text-slate-400 mt-1 max-w-sm">
-                                        Reads the DOI, title and authors in your browser; nothing is uploaded.
+                                        Select several files at once. Each PDF's DOI, title and authors are read in your browser; files are not uploaded.
                                     </p>
                                 </div>
                             </div>
@@ -735,6 +735,8 @@
                                 </div>
                             </div>
 
+                            <p class="text-[11px] text-slate-400 -mt-2">Tip: paste several links or DOIs separated by spaces or new lines to generate them all at once. A link to a PDF is downloaded and read like an uploaded file.</p>
+
                             <!-- Resolution Status Banner -->
                             <div id="citation-status-card" role="status" aria-live="polite" class="hidden rounded-xl p-3.5 text-xs flex items-start gap-2.5 transition-all">
                                 <div id="citation-status-icon" class="shrink-0 mt-0.5"></div>
@@ -743,6 +745,13 @@
                                     <p id="citation-status-desc" class="mt-0.5 opacity-90"></p>
                                 </div>
                             </div>
+
+                            <!-- Several PDFs or links at once -->
+                            <div id="citation-batch" class="hidden space-y-3 bg-slate-50 border border-slate-200/80 rounded-2xl p-4"></div>
+                            <p id="citation-batch-note" class="hidden text-xs text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-xl p-3">
+                                <span data-note-text></span>
+                                <button type="button" onclick="loadBibliographyWorkspace()" class="font-semibold underline">Open the Bibliography Formatter</button>
+                            </p>
                         </div>
 
                         <!-- Extracted / Editable Metadata Form -->
@@ -1049,6 +1058,10 @@
                                         <i data-lucide="plus" class="w-3.5 h-3.5"></i> Add to bibliography
                                     </button>
                                 </div>
+                                <p id="citation-added-note" class="hidden mt-3 text-xs text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-xl p-3" style="font-family: 'Plus Jakarta Sans', sans-serif;">
+                                    <span data-note-text></span>
+                                    <button type="button" onclick="loadBibliographyWorkspace()" class="font-semibold underline">Open the Bibliography Formatter</button>
+                                </p>
 
                                 <div id="citation-intext-container" class="border-t border-slate-200 pt-4 mt-6 space-y-3" style="font-family: 'Plus Jakarta Sans', sans-serif;">
                                     <h4 class="text-xs font-bold text-slate-600">In-text citations</h4>
