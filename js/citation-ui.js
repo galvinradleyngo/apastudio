@@ -544,6 +544,16 @@ async function handleResolveUrl() {
     }
 }
 
+async function doiFromElsevierPii(pii) {
+    try {
+        const data = await fetchJson(`https://api.crossref.org/works?filter=alternative-id:${encodeURIComponent(pii)}&rows=2&select=DOI,title`);
+        const items = data && data.message && data.message.items;
+        return items && items[0] ? items[0].DOI : '';
+    } catch (e) {
+        return '';
+    }
+}
+
 async function resolveWebOrDoi(input) {
     // 1. Direct or embedded DOI
     const doi = extractDoiFromText(input);
@@ -565,6 +575,18 @@ async function resolveWebOrDoi(input) {
         if (ok) {
             setCitationStatus('success', 'Verified via arXiv Preprint Registry', `Successfully retrieved preprint metadata for arXiv:${arxivMatch[1]}.`);
             showToast('Citation generated from arXiv!');
+            return;
+        }
+    }
+
+    // 2b. ScienceDirect / Elsevier link: the page itself is usually blocked to browsers, but Crossref knows the PII.
+    const pii = input.match(/(?:sciencedirect\.com\/science\/article\/(?:abs\/|am\/)?pii|linkinghub\.elsevier\.com\/retrieve\/pii)\/(S[0-9A-Z]{15,17})/i);
+    if (pii) {
+        setCitationStatus('loading', 'Looking up the article...', `ScienceDirect ID ${pii[1]}. Asking Crossref for its DOI...`);
+        const found = await doiFromElsevierPii(pii[1]);
+        if (found && await resolveDoiMetadata(found)) {
+            setCitationStatus('success', 'Verified via Crossref', `Matched ScienceDirect ID ${pii[1]} to DOI ${found}.`);
+            showToast('Citation generated from the article record!');
             return;
         }
     }
@@ -1002,7 +1024,10 @@ async function resolveGeneralWebUrl(urlStr) {
     }
 
     const html = await fetchPageHtml(parsedUrl.href);
-    const meta = html ? parseHtmlMetadata(html, parsedUrl.hostname) : null;
+    let meta = html ? parseHtmlMetadata(html, parsedUrl.hostname) : null;
+    // A blocked or missing page can still have a title ("There was a problem providing the content...").
+    // Using it would put an error message in the reference, so fall back to what the link itself tells us.
+    if (meta && looksLikeErrorTitle(meta.title)) meta = null;
 
     if (meta && meta.doi && /^10\./.test(meta.doi)) {
         if (await resolveDoiMetadata(meta.doi)) {
@@ -1041,8 +1066,11 @@ async function resolveGeneralWebUrl(urlStr) {
     const rawTitle = (meta && meta.title) || titleCandidate || (isHomePage && siteName ? siteName : (domainName ? `${domainName} home page` : 'Webpage'));
     const orgName = knownOrganizationName(parsedUrl.hostname);
     const orgAuthor = !isJournalPage && institutional ? (orgName || siteName) : '';
-    const authors = (meta && meta.author) || orgAuthor;
-    const authorIsOrgGuess = !(meta && meta.author) && !!orgAuthor;
+    // Medium puts the writer's profile handle in the link: /@handle/title-slug-id
+    const mediumHandle = (/(^|\.)medium\.com$/i.test(parsedUrl.hostname) && (parsedUrl.pathname.match(/^\/@([\w.-]+)\//) || [])[1]) || '';
+    const handleGuess = !(meta && meta.author) && mediumHandle ? mediumHandle.charAt(0).toUpperCase() + mediumHandle.slice(1) : '';
+    const authors = (meta && meta.author) || handleGuess || orgAuthor;
+    const authorIsOrgGuess = !(meta && meta.author) && !!orgAuthor && !handleGuess;
     const year = (meta && meta.year) || dateParts.year;
     const monthDay = (meta && meta.year) ? meta.monthDay : dateParts.monthDay;
 
@@ -1065,6 +1093,11 @@ async function resolveGeneralWebUrl(urlStr) {
         'cite-doi-url': 'found'
     });
 
+    if (handleGuess) {
+        setCitationStatus('warning', 'Medium article: author needs checking', `The page could not be read, so the title comes from the link and "${handleGuess}" is the writer's Medium username, not necessarily their name. Replace it with the author's real name (Surname, Initials) and add the publication date from the article.`);
+        showToast('Review the author and date.');
+        return;
+    }
     const missing = [];
     if (!authors) missing.push('author');
     if (!year) missing.push('date');

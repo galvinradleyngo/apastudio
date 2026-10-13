@@ -109,9 +109,16 @@ function describeFetchFailure() {
     return 'The page could not be reached from the browser (network or proxy blocked).';
 }
 
+// Titles that publishers show instead of the real page when they refuse an automated request or the page is gone.
+const ERROR_PAGE_TITLE = /^(access denied|forbidden|403|404|just a moment|attention required|are you a robot|robot check|blocked|error|request blocked|pardon our interruption|page not found|not found|something went wrong|oops|sign in|log in|please wait|one moment)|there was a problem providing the content you requested|page (you requested )?(could not|cannot|can.t) be found|are you a human|unusual traffic|verify you are human/i;
+
+function looksLikeErrorTitle(title) {
+    return ERROR_PAGE_TITLE.test(String(title || '').trim());
+}
+
 function looksLikeBlockPage(html) {
     const title = ((html.match(/<title[^>]*>([\s\S]*?)<\/title>/i) || [])[1] || '').trim();
-    return /^(access denied|forbidden|403|just a moment|attention required|are you a robot|robot check|blocked|error|request blocked|pardon our interruption)/i.test(title)
+    return looksLikeErrorTitle(title)
         || /(captcha|cf-browser-verification|enable javascript and cookies to continue)/i.test(html.slice(0, 4000)) && html.length < 8000;
 }
 
@@ -205,6 +212,8 @@ function deriveTitleFromUrlPath(pathname) {
     if (!segments.length) return '';
     const clean = segments[segments.length - 1]
         .replace(/\.(html?|php|aspx?|jsp|pdf)$/i, '')
+        // Publishing platforms append an id to the slug (Medium: -8ea5c48ddc65; others: -1234567).
+        .replace(/[-_+]((?=[0-9a-f]*\d)(?=[0-9a-f]*[a-f])[0-9a-f]{10,}|\d{5,})$/i, '')
         .replace(/[-_+]+/g, ' ')
         .replace(/\s+\d{5,}$/, '')
         .trim();
